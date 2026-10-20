@@ -77,6 +77,8 @@ ccswitch --help
 
 ### Dashboard
 
+![Dashboard](docs/dashboard.png)
+
 `--dashboard` shows each managed account with:
 
 - **Login expiry**: when the stored login (refresh token) lapses and you must log in again

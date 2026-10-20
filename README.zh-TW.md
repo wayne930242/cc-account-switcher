@@ -77,6 +77,8 @@ ccswitch --help
 
 ### 用量看板
 
+![用量看板](docs/dashboard.png)
+
 `--dashboard` 會列出每個帳號的：
 
 - **登入到期時間**：儲存的登入（refresh token）多久後失效，失效後就得重新登入
