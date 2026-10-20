@@ -91,19 +91,22 @@ When stdin or stdout is not a terminal, `--dashboard` prints one snapshot and ex
 - Bash 4.4+
 - `jq` (JSON processor)
 - `curl` (login renewal and the usage dashboard)
+- `claude` (only for `--test` and the dashboard's `t` key)
 
 ### Installing Dependencies
 
 **macOS:**
 
 ```bash
-brew install jq
+brew install bash jq
 ```
+
+macOS ships Bash 3.2, so install a newer one with Homebrew.
 
 **Ubuntu/Debian:**
 
 ```bash
-sudo apt install jq
+sudo apt install jq curl
 ```
 
 ## How It Works
@@ -127,7 +130,7 @@ A target token with more than an hour left is kept as is: renewing rotates the r
 ### If a switch fails
 
 - Check that you have accounts added: `./ccswitch.sh --list`
-- Verify Claude Code is closed before switching
+- Read the error message: when the target login has expired or was revoked, log in to Claude Code with that account and run `--add-account`
 - Try switching back to your original account
 
 ### If you can't add an account
@@ -149,13 +152,13 @@ To stop using this tool and remove all data:
 2. Remove the backup directory: `rm -rf ~/.claude-switch-backup`
 3. Delete the script: `rm ccswitch.sh`
 
-Your current Claude Code login will remain active.
+Your current Claude Code login will remain active. On macOS, also delete the Keychain items named "Claude Code-Account-…", which removing the backup directory leaves behind.
 
 ## Security Notes
 
 - Credentials stored in macOS Keychain or files with 600 permissions
 - Authentication files are stored with restricted permissions (600)
-- The tool requires Claude Code to be closed during account switches
+- Login renewal and usage requests send tokens through stdin, and `--test` passes them through the environment, never as command arguments. Saving credentials to the macOS Keychain still passes them to `security -w` as an argument, so they briefly appear in the process list, as in the original script
 
 ## Development
 

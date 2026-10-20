@@ -157,7 +157,7 @@ sudo apt install jq curl
 ## 安全性
 
 - 憑證存在 macOS 鑰匙圈，或權限 600 的檔案
-- 更新登入和查詢用量時，token 經由標準輸入傳遞，不會出現在行程清單（process list）裡
+- 更新登入和查詢用量時，token 經由標準輸入傳遞；`--test` 則透過環境變數傳遞，都不會出現在指令參數裡。不過存進 macOS 鑰匙圈時，憑證仍是以參數交給 `security -w`，會短暫出現在行程清單（process list）裡，這點和原專案相同
 
 ## 開發
 
