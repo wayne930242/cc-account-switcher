@@ -61,7 +61,7 @@ chmod +x ccswitch.sh
 
 - **Login expiry**: when the stored login (refresh token) lapses and you must log in again
 - **Token state**: whether the access token is valid, was just renewed, or the login is dead
-- **5-hour and 7-day usage**: percent used and left, with the time until each window resets, plus any per-model weekly limits
+- **5-hour and 7-day usage**: percent used, with the time until each window resets, plus any per-model weekly limits
 
 Keys: `↑`/`↓` (or `j`/`k`) select, `Enter` switches to the selected account, `1`-`9` switch to that account number, `t` tests the selected account (see below), `r` reloads, `q` quits. Every switch asks for confirmation. The screen reloads every 5 minutes.
 

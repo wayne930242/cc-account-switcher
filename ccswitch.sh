@@ -718,9 +718,9 @@ dashboard_render() {
     local snapshot="$1" selected="$2" color="$3" status="$4" interactive="$5"
     local columns bar_width
 
-    # Usage lines are 54 columns plus the bar; the bar takes what the terminal has left
+    # Usage lines are 44 columns plus the bar; the bar takes what the terminal has left
     columns=$(tput cols 2>/dev/null || echo 80)
-    bar_width=$((columns - 54))
+    bar_width=$((columns - 44))
     ((bar_width < 8)) && bar_width=8
     ((bar_width > 30)) && bar_width=30
 
@@ -743,7 +743,7 @@ dashboard_render() {
         def window($label; $pct; $resets):
             ($pct // 0 | round) as $p
             | "     " + ($label | pad(12)) + (bar($p) | c(level($p)))
-              + " " + ("\($p)%" | lpad(4)) + " used " + ("\(100 - $p)%" | lpad(4)) + " left"
+              + " " + ("\($p)%" | lpad(4)) + " used"
               + (if $resets then "  resets " + ($resets | epoch - $now | dur) else "" end);
         def plan:
             if .meta == null then ""
