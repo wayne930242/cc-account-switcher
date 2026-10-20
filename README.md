@@ -1,5 +1,7 @@
 # Multi-Account Switcher for Claude Code
 
+English | [繁體中文](README.zh-TW.md)
+
 A simple tool to manage and switch between multiple Claude Code accounts on macOS, Linux, and WSL.
 
 > This is a maintained fork of [ming86/cc-account-switcher](https://github.com/ming86/cc-account-switcher), which has been archived. It adds a usage dashboard and renews a login before switching to it.
