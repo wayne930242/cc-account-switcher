@@ -47,6 +47,10 @@ chmod +x ccswitch.sh
 # Interactive usage dashboard
 ./ccswitch.sh --dashboard
 
+# Check that tokens really work (all accounts, or one)
+./ccswitch.sh --test
+./ccswitch.sh --test 2
+
 # Show help
 ./ccswitch.sh --help
 ```
@@ -59,11 +63,15 @@ chmod +x ccswitch.sh
 - **Token state**: whether the access token is valid, was just renewed, or the login is dead
 - **5-hour and 7-day usage**: percent used and left, with the time until each window resets, plus any per-model weekly limits
 
-Keys: `↑`/`↓` (or `j`/`k`) select, `Enter` switches to the selected account, `1`-`9` switch to that account number, `r` reloads, `q` quits. Every switch asks for confirmation. The screen reloads every 5 minutes.
+Keys: `↑`/`↓` (or `j`/`k`) select, `Enter` switches to the selected account, `1`-`9` switch to that account number, `t` tests the selected account (see below), `r` reloads, `q` quits. Every switch asks for confirmation. The screen reloads every 5 minutes.
 
 To show usage for inactive accounts, the dashboard renews an inactive account's expired access token and saves the result back to that account's backup. It never renews the active account's live token, because Claude Code holds it; when that token has expired, the dashboard says so and Claude Code renews it on its next request.
 
 When stdin or stdout is not a terminal, `--dashboard` prints one snapshot and exits, so it also works in scripts. Set `NO_COLOR` to disable colors.
+
+### Token Test
+
+`--test [num|email]` checks that a stored token actually works, not just that it has not expired: it sends one tiny prompt to Haiku with `claude -p`, using that account's access token through `CLAUDE_CODE_OAUTH_TOKEN`. Without an argument it tests every account in parallel and exits non-zero when any test fails. The test runs in an empty directory with no settings, MCP servers, or tools. It needs the `claude` CLI on `PATH` and uses a few tokens of each account's quota.
 
 ### First Time Setup
 

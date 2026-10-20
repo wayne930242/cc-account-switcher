@@ -798,47 +798,158 @@ fetch_usage() {
     esac
 }
 
-# Collect one account's token and usage state as a JSON object.
-# The active account uses the live credentials, which Claude Code owns, so they are never refreshed here.
-dashboard_snapshot_account() {
-    local index="$1" num="$2" email="$3" active="$4"
-    local credentials token_state="valid" usage="null" error="" meta="null"
-    local expires_at refreshed output rc now_ms
+# Load an account's credentials into ACCOUNT_CREDENTIALS and its state into ACCOUNT_TOKEN_STATE
+# (valid, refreshed, expired-active, relogin, refresh-rate-limited, refresh-failed, save-failed, missing).
+# The active account uses the live credentials, which Claude Code owns, so they are never refreshed here;
+# an inactive account's expired access token is renewed and saved back to its backup.
+load_account_credentials() {
+    local num="$1" email="$2" active="$3"
+    local expires_at refreshed rc now_ms
 
+    ACCOUNT_TOKEN_STATE="valid"
     if [[ "$active" == "true" ]]; then
-        credentials=$(read_credentials)
+        ACCOUNT_CREDENTIALS=$(read_credentials)
     else
-        credentials=$(read_account_credentials "$num" "$email")
+        ACCOUNT_CREDENTIALS=$(read_account_credentials "$num" "$email")
     fi
 
-    if [[ -z "$credentials" ]] || ! jq -e '.claudeAiOauth.accessToken' >/dev/null 2>&1 <<<"$credentials"; then
-        token_state="missing"
-    else
-        now_ms=$(($(date +%s) * 1000))
-        expires_at=$(jq -r '.claudeAiOauth.expiresAt // 0 | floor' <<<"$credentials")
-        if ((expires_at - 300000 <= now_ms)); then
-            if [[ "$active" == "true" ]]; then
-                token_state="expired-active"
-            else
-                rc=0
-                refreshed=$(refresh_oauth_credentials "$credentials") || rc=$?
-                if ((rc == 0)); then
-                    if write_account_credentials "$num" "$email" "$refreshed"; then
-                        credentials="$refreshed"
-                        token_state="refreshed"
-                    else
-                        token_state="save-failed"
-                    fi
-                elif ((rc == 2)); then
-                    token_state="relogin"
-                elif ((rc == 3)); then
-                    token_state="refresh-rate-limited"
-                else
-                    token_state="refresh-failed"
-                fi
-            fi
-        fi
+    if [[ -z "$ACCOUNT_CREDENTIALS" ]] || ! jq -e '.claudeAiOauth.accessToken' >/dev/null 2>&1 <<<"$ACCOUNT_CREDENTIALS"; then
+        ACCOUNT_TOKEN_STATE="missing"
+        return 0
+    fi
 
+    now_ms=$(($(date +%s) * 1000))
+    expires_at=$(jq -r '.claudeAiOauth.expiresAt // 0 | floor' <<<"$ACCOUNT_CREDENTIALS")
+    if ((expires_at - 300000 > now_ms)); then
+        return 0
+    fi
+    if [[ "$active" == "true" ]]; then
+        ACCOUNT_TOKEN_STATE="expired-active"
+        return 0
+    fi
+
+    rc=0
+    refreshed=$(refresh_oauth_credentials "$ACCOUNT_CREDENTIALS") || rc=$?
+    if ((rc == 0)); then
+        if write_account_credentials "$num" "$email" "$refreshed"; then
+            ACCOUNT_CREDENTIALS="$refreshed"
+            ACCOUNT_TOKEN_STATE="refreshed"
+        else
+            ACCOUNT_TOKEN_STATE="save-failed"
+        fi
+    elif ((rc == 2)); then
+        ACCOUNT_TOKEN_STATE="relogin"
+    elif ((rc == 3)); then
+        ACCOUNT_TOKEN_STATE="refresh-rate-limited"
+    else
+        ACCOUNT_TOKEN_STATE="refresh-failed"
+    fi
+}
+
+# Send one tiny prompt to Haiku through `claude -p` with the account's access token.
+# Prints a one-line verdict and returns 1 when the token does not actually work.
+test_account_inference() {
+    local num="$1" email="$2" active="$3"
+    local work_dir output result started elapsed
+
+    load_account_credentials "$num" "$email" "$active"
+    case "$ACCOUNT_TOKEN_STATE" in
+        valid | refreshed) ;;
+        expired-active) echo "SKIPPED: live token expired; Claude Code renews it on its next request"; return 1 ;;
+        relogin) echo "FAILED: login expired or revoked; log in again, then --add-account"; return 1 ;;
+        missing) echo "FAILED: no stored credentials"; return 1 ;;
+        *) echo "FAILED: could not renew the token ($ACCOUNT_TOKEN_STATE)"; return 1 ;;
+    esac
+
+    # An empty directory with no settings, MCP servers, or tools keeps the test to one plain request;
+    # the token goes through the environment, never the command line
+    work_dir=$(mktemp -d)
+    started=$(date +%s)
+    output=$(cd "$work_dir" && printf 'Reply with exactly: OK\n' |
+        CLAUDE_CODE_OAUTH_TOKEN="$(jq -r '.claudeAiOauth.accessToken' <<<"$ACCOUNT_CREDENTIALS")" \
+            ANTHROPIC_API_KEY="" \
+            claude -p --model haiku --output-format json --no-session-persistence \
+            --strict-mcp-config --setting-sources "" --tools "" 2>&1) || true
+    elapsed=$(($(date +%s) - started))
+    rm -rf "$work_dir"
+
+    result=$(jq -c 'if type == "array" then (map(select(.type == "result")) | last) else . end
+        | {is_error, result}' 2>/dev/null <<<"$output" || true)
+    if [[ -z "$result" || "$result" == "null" ]]; then
+        echo "FAILED: claude -p gave no result: $(head -n1 <<<"$output" | cut -c1-120)"
+        return 1
+    fi
+    if [[ "$(jq -r '.is_error' <<<"$result")" != "false" ]]; then
+        echo "FAILED: $(jq -r '.result // "unknown error"' <<<"$result" | head -n1 | cut -c1-120)"
+        return 1
+    fi
+    echo "OK: haiku replied in ${elapsed}s"
+}
+
+# Test that one account (or every account) can actually run a prompt
+cmd_test() {
+    if [[ ! -f "$SEQUENCE_FILE" ]]; then
+        echo "Error: No accounts are managed yet"
+        exit 1
+    fi
+    if ! command -v claude >/dev/null 2>&1; then
+        echo "Error: Required command 'claude' not found"
+        exit 1
+    fi
+
+    local target="" current_email work_dir num email active failed=0 verdict
+    if [[ $# -gt 0 ]]; then
+        if [[ "$1" =~ ^[0-9]+$ ]]; then
+            target="$1"
+        else
+            target=$(resolve_account_identifier "$1")
+        fi
+        if [[ -z "$target" ]] || ! jq -e --arg num "$target" '.accounts[$num]' >/dev/null "$SEQUENCE_FILE"; then
+            echo "Error: No account found: $1"
+            exit 1
+        fi
+    fi
+
+    current_email=$(get_current_account)
+    work_dir=$(mktemp -d)
+    echo "Testing with claude -p (haiku)..."
+    while IFS=$'\t' read -r num email; do
+        if [[ -n "$target" && "$num" != "$target" ]]; then
+            continue
+        fi
+        active=false
+        if [[ "$email" == "$current_email" ]]; then
+            active=true
+        fi
+        { test_account_inference "$num" "$email" "$active" || true; } >"$work_dir/$num" &
+    done < <(jq -r '.sequence[] as $n | "\($n)\t\(.accounts["\($n)"].email)"' "$SEQUENCE_FILE")
+    wait
+
+    while IFS=$'\t' read -r num email; do
+        if [[ ! -f "$work_dir/$num" ]]; then
+            continue
+        fi
+        verdict=$(cat "$work_dir/$num")
+        printf '  %s: %-32s %s\n' "$num" "$email" "$verdict"
+        if [[ "$verdict" != OK:* ]]; then
+            failed=1
+        fi
+    done < <(jq -r '.sequence[] as $n | "\($n)\t\(.accounts["\($n)"].email)"' "$SEQUENCE_FILE")
+    rm -rf "$work_dir"
+    return "$failed"
+}
+
+# Collect one account's token and usage state as a JSON object
+dashboard_snapshot_account() {
+    local index="$1" num="$2" email="$3" active="$4"
+    local credentials token_state usage="null" error="" meta="null"
+    local output rc
+
+    load_account_credentials "$num" "$email" "$active"
+    credentials="$ACCOUNT_CREDENTIALS"
+    token_state="$ACCOUNT_TOKEN_STATE"
+
+    if [[ "$token_state" != "missing" ]]; then
         if [[ "$token_state" == "valid" || "$token_state" == "refreshed" ]]; then
             rc=0
             output=$(fetch_usage "$(jq -r '.claudeAiOauth.accessToken' <<<"$credentials")") || rc=$?
@@ -957,7 +1068,7 @@ dashboard_render() {
         "",
         (if length == 0 then "  No managed accounts. Run --add-account first.", "" else .[] | account_lines end),
         (if $interactive then
-            ("↑/↓ select   enter switch   1-9 switch to #   r refresh   q quit" | c("2")),
+            ("↑/↓ select  enter switch  1-9 switch to #  t test  r refresh  q quit" | c("2")),
             (if $status != "" then $status else empty end)
          else empty end)
     ' <<<"$snapshot"
@@ -1040,6 +1151,9 @@ cmd_dashboard() {
                     status="No account #$key"
                 fi
                 ;;
+            t | T)
+                ((count > 0)) && dashboard_test_selected
+                ;;
             r | R)
                 status=""
                 dashboard_reload
@@ -1089,6 +1203,29 @@ dashboard_switch_selected() {
     return 0
 }
 
+# Run the claude -p test for the selected dashboard account and show the verdict
+dashboard_test_selected() {
+    local num email active verdict
+
+    if ! command -v claude >/dev/null 2>&1; then
+        status="Cannot test: 'claude' is not on PATH"
+        return 0
+    fi
+    IFS=$'\t' read -r num email active < <(jq -r --argjson i "$selected" '.[$i] | [.num, .email, .active] | @tsv' <<<"$snapshot")
+    status="Testing Account-$num with claude -p (haiku)..."
+    dashboard_draw
+    verdict=$(test_account_inference "$num" "$email" "$active") || true
+    if [[ "$color" == "true" ]]; then
+        if [[ "$verdict" == OK:* ]]; then
+            verdict=$'\033[32m'"$verdict"$'\033[0m'
+        else
+            verdict=$'\033[31m'"$verdict"$'\033[0m'
+        fi
+    fi
+    status="Account-$num test: $verdict"
+    return 0
+}
+
 # Leave the alternate screen and remove the dashboard work directory
 dashboard_restore_terminal() {
     stty echo 2>/dev/null || true
@@ -1111,6 +1248,7 @@ show_usage() {
     echo "  --switch                         Rotate to next account in sequence"
     echo "  --switch-to <num|email>          Switch to specific account number or email"
     echo "  --dashboard                      Show token expiry and 5-hour/7-day usage; switch interactively"
+    echo "  --test [num|email]               Check that each account's token really works (claude -p, haiku)"
     echo "  --help                           Show this help message"
     echo ""
     echo "Examples:"
@@ -1120,6 +1258,7 @@ show_usage() {
     echo "  $0 --switch-to 2"
     echo "  $0 --switch-to user@example.com"
     echo "  $0 --dashboard"
+    echo "  $0 --test 2"
     echo "  $0 --remove-account user@example.com"
 }
 
@@ -1151,6 +1290,10 @@ main() {
         --switch-to)
             shift
             cmd_switch_to "$@"
+            ;;
+        --test)
+            shift
+            cmd_test "$@"
             ;;
         --dashboard)
             cmd_dashboard
