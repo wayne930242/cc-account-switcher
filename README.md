@@ -2,6 +2,8 @@
 
 A simple tool to manage and switch between multiple Claude Code accounts on macOS, Linux, and WSL.
 
+> This is a maintained fork of [ming86/cc-account-switcher](https://github.com/ming86/cc-account-switcher), which has been archived. It adds a usage dashboard and renews a login before switching to it.
+
 ## Features
 
 - **Multi-account management**: Add, remove, and list Claude Code accounts
@@ -9,13 +11,15 @@ A simple tool to manage and switch between multiple Claude Code accounts on macO
 - **Cross-platform**: Works on macOS, Linux, and WSL
 - **Secure storage**: Uses system keychain (macOS) or protected files (Linux/WSL)
 - **Settings preservation**: Only switches authentication - your themes, settings, and preferences remain unchanged
+- **Usage dashboard**: See every account's login expiry and 5-hour/7-day usage, and switch from the same screen
+- **Safe switching**: An expired target login is renewed before the switch; a dead login stops the switch and leaves the current account in place
 
 ## Installation
 
 Download the script directly:
 
 ```bash
-curl -O https://raw.githubusercontent.com/ming86/cc-account-switcher/main/ccswitch.sh
+curl -O https://raw.githubusercontent.com/wayne930242/cc-account-switcher/main/ccswitch.sh
 chmod +x ccswitch.sh
 ```
 
@@ -40,9 +44,26 @@ chmod +x ccswitch.sh
 # Remove an account
 ./ccswitch.sh --remove-account user2@example.com
 
+# Interactive usage dashboard
+./ccswitch.sh --dashboard
+
 # Show help
 ./ccswitch.sh --help
 ```
+
+### Dashboard
+
+`--dashboard` shows each managed account with:
+
+- **Login expiry**: when the stored login (refresh token) lapses and you must log in again
+- **Token state**: whether the access token is valid, was just renewed, or the login is dead
+- **5-hour and 7-day usage**: percent used and left, with the time until each window resets, plus any per-model weekly limits
+
+Keys: `↑`/`↓` (or `j`/`k`) select, `Enter` switches to the selected account, `1`-`9` switch to that account number, `r` reloads, `q` quits. Every switch asks for confirmation. The screen reloads every 5 minutes.
+
+To show usage for inactive accounts, the dashboard renews an inactive account's expired access token and saves the result back to that account's backup. It never renews the active account's live token, because Claude Code holds it; when that token has expired, the dashboard says so and Claude Code renews it on its next request.
+
+When stdin or stdout is not a terminal, `--dashboard` prints one snapshot and exits, so it also works in scripts. Set `NO_COLOR` to disable colors.
 
 ### First Time Setup
 
@@ -59,6 +80,7 @@ chmod +x ccswitch.sh
 
 - Bash 4.4+
 - `jq` (JSON processor)
+- `curl` (login renewal and the usage dashboard)
 
 ### Installing Dependencies
 
@@ -83,9 +105,12 @@ The switcher stores account authentication data separately:
 
 When switching accounts, it:
 
-1. Backs up the current account's authentication data
-2. Restores the target account's authentication data
-3. Updates Claude Code's authentication files
+1. Renews the target account's login when its access token expires within an hour, and stops without changing anything when the login is dead
+2. Backs up the current account's authentication data
+3. Restores the target account's authentication data
+4. Updates Claude Code's authentication files
+
+A target token with more than an hour left is kept as is: renewing rotates the refresh token, which would break any running session that still holds the old one.
 
 ## Troubleshooting
 
@@ -98,7 +123,7 @@ When switching accounts, it:
 ### If you can't add an account
 
 - Make sure you're logged into Claude Code first
-- Check that you have `jq` installed
+- Check that you have `jq` and `curl` installed
 - Verify you have write permissions to your home directory
 
 ### If Claude Code doesn't recognize the new account
