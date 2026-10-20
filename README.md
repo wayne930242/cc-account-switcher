@@ -155,6 +155,10 @@ Your current Claude Code login will remain active.
 - Authentication files are stored with restricted permissions (600)
 - The tool requires Claude Code to be closed during account switches
 
+## Development
+
+`bash tests/run.sh` runs the offline regression tests: each one uses a sandbox `HOME` with the file-based credential store and stub `curl` and `claude` commands, so it never touches a real Keychain, account, or network.
+
 ## License
 
 MIT License - see LICENSE file for details

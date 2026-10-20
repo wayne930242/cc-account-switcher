@@ -157,7 +157,8 @@ test_switch_stops_on_dead_login() {
     STUB_REFRESH=invalid
     out=$(ccswitch --switch-to 1) || status=$?
     expect_equals "$status" "1" "dead login exit status"
-    expect_contains "$out" "has expired or was revoked" "dead login message"
+    expect_contains "$out" "login expired or revoked" "dead login message"
+    expect_contains "$out" "Nothing was switched" "dead login keeps current account"
     expect_equals "$(live_email)" "b@example.com" "live account untouched"
     expect_equals "$(live_access_token)" "good-b" "live token untouched"
 }
@@ -225,7 +226,7 @@ test_dashboard_reports_dead_login() {
     set_backup 1 a@example.com "$(creds good-a "$PAST_MS" rt-a)"
     STUB_REFRESH=invalid
     out=$(ccswitch --dashboard </dev/null)
-    expect_contains "$out" "login dead" "dead login shown"
+    expect_contains "$out" "login expired or revoked" "dead login shown"
 }
 
 test_token_test() {
