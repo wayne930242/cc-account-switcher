@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Development entry point: runs ccswitch straight from lib/.
+# Releases ship the single file that scripts/build.sh assembles from the same modules.
+
+set -euo pipefail
+
+ccswitch_entry="${BASH_SOURCE[0]}"
+while [[ -L "$ccswitch_entry" ]]; do
+    ccswitch_link=$(readlink "$ccswitch_entry")
+    if [[ "$ccswitch_link" != /* ]]; then
+        ccswitch_link="$(dirname "$ccswitch_entry")/$ccswitch_link"
+    fi
+    ccswitch_entry="$ccswitch_link"
+done
+
+# shellcheck disable=SC2034  # read by lib/ modules
+CCSWITCH_VERSION="dev"
+for ccswitch_module in "$(cd "$(dirname "$ccswitch_entry")/../lib" && pwd)"/*.sh; do
+    # shellcheck source=/dev/null
+    source "$ccswitch_module"
+done
+unset ccswitch_entry ccswitch_link ccswitch_module
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi

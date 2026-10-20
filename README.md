@@ -18,12 +18,30 @@ A simple tool to manage and switch between multiple Claude Code accounts on macO
 
 ## Installation
 
-Download the script directly:
+Install the latest release (to `~/.local/bin/ccswitch`):
 
 ```bash
-curl -O https://raw.githubusercontent.com/wayne930242/cc-account-switcher/main/ccswitch.sh
-chmod +x ccswitch.sh
+curl -fsSL https://github.com/wayne930242/cc-account-switcher/releases/latest/download/install.sh | bash
 ```
+
+The installer downloads the release's `ccswitch` and verifies its SHA256 checksum before installing it. Options:
+
+```bash
+# A specific version, into another directory
+curl -fsSL https://github.com/wayne930242/cc-account-switcher/releases/latest/download/install.sh | bash -s -- --version v1.0.0 --dir ~/bin
+```
+
+`--version`, `--dir`, and `--name` can also be set with `CCSWITCH_INSTALL_VERSION`, `CCSWITCH_INSTALL_DIR`, and `CCSWITCH_INSTALL_NAME`.
+
+Update an installed copy in place:
+
+```bash
+ccswitch --self-update          # latest release
+ccswitch --self-update v1.0.0   # a specific release
+ccswitch --version
+```
+
+Releases are listed on the [Releases page](https://github.com/wayne930242/cc-account-switcher/releases).
 
 ## Usage
 
@@ -31,30 +49,30 @@ chmod +x ccswitch.sh
 
 ```bash
 # Add current account to managed accounts
-./ccswitch.sh --add-account
+ccswitch --add-account
 
 # List all managed accounts
-./ccswitch.sh --list
+ccswitch --list
 
 # Switch to next account in sequence
-./ccswitch.sh --switch
+ccswitch --switch
 
 # Switch to specific account by number or email
-./ccswitch.sh --switch-to 2
-./ccswitch.sh --switch-to user2@example.com
+ccswitch --switch-to 2
+ccswitch --switch-to user2@example.com
 
 # Remove an account
-./ccswitch.sh --remove-account user2@example.com
+ccswitch --remove-account user2@example.com
 
 # Interactive usage dashboard
-./ccswitch.sh --dashboard
+ccswitch --dashboard
 
 # Check that tokens really work (all accounts, or one)
-./ccswitch.sh --test
-./ccswitch.sh --test 2
+ccswitch --test
+ccswitch --test 2
 
 # Show help
-./ccswitch.sh --help
+ccswitch --help
 ```
 
 ### Dashboard
@@ -78,10 +96,10 @@ When stdin or stdout is not a terminal, `--dashboard` prints one snapshot and ex
 ### First Time Setup
 
 1. **Log into Claude Code** with your first account (make sure you're actively logged in)
-2. Run `./ccswitch.sh --add-account` to add it to managed accounts
+2. Run `ccswitch --add-account` to add it to managed accounts
 3. **Log out** and log into Claude Code with your second account
-4. Run `./ccswitch.sh --add-account` again
-5. Now you can switch between accounts with `./ccswitch.sh --switch`
+4. Run `ccswitch --add-account` again
+5. Now you can switch between accounts with `ccswitch --switch`
 6. **Important**: After each switch, restart Claude Code to use the new authentication
 
 > **What gets switched:** Only your authentication credentials change. Your themes, settings, preferences, and chat history remain exactly the same.
@@ -129,7 +147,7 @@ A target token with more than an hour left is kept as is: renewing rotates the r
 
 ### If a switch fails
 
-- Check that you have accounts added: `./ccswitch.sh --list`
+- Check that you have accounts added: `ccswitch --list`
 - Read the error message: when the target login has expired or was revoked, log in to Claude Code with that account and run `--add-account`
 - Try switching back to your original account
 
@@ -142,13 +160,13 @@ A target token with more than an hour left is kept as is: renewing rotates the r
 ### If Claude Code doesn't recognize the new account
 
 - Make sure you restarted Claude Code after switching
-- Check the current account: `./ccswitch.sh --list` (look for "(active)")
+- Check the current account: `ccswitch --list` (look for "(active)")
 
 ## Cleanup/Uninstall
 
 To stop using this tool and remove all data:
 
-1. Note your current active account: `./ccswitch.sh --list`
+1. Note your current active account: `ccswitch --list`
 2. Remove the backup directory: `rm -rf ~/.claude-switch-backup`
 3. Delete the script: `rm ccswitch.sh`
 
@@ -162,7 +180,19 @@ Your current Claude Code login will remain active. On macOS, also delete the Key
 
 ## Development
 
-`bash tests/run.sh` runs the offline regression tests: each one uses a sandbox `HOME` with the file-based credential store and stub `curl` and `claude` commands, so it never touches a real Keychain, account, or network.
+The source is split into modules under `lib/`, loaded in file-name order. `bin/ccswitch` runs them directly from a checkout (`ccswitch --version` prints `dev`), and `scripts/build.sh <version>` assembles them into the single file `dist/ccswitch` plus `dist/ccswitch.sha256`.
+
+```
+bin/ccswitch        development entry point
+lib/*.sh            modules: config, environment, storage, registry, OAuth, commands, token test, dashboard, update, main
+scripts/build.sh    builds the release file
+install.sh          bootstrap installer attached to every release
+tests/run.sh        offline regression tests
+```
+
+`bash tests/run.sh` runs the offline regression tests: each one uses a sandbox `HOME` with the file-based credential store and stub `curl` and `claude` commands, so it never touches a real Keychain, account, or network. `CCSWITCH_SCRIPT=dist/ccswitch bash tests/run.sh` runs them against a built file.
+
+To release, push a tag such as `v1.2.0`. The release workflow builds `dist/ccswitch` with that version, runs shellcheck and the tests against it, and publishes a GitHub release with `ccswitch`, `ccswitch.sha256`, and `install.sh`.
 
 ## License
 

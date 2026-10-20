@@ -5,7 +5,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SCRIPT="$ROOT/ccswitch.sh"
+# Test the development entry by default; CI also runs the suite against the built release file
+SCRIPT="${CCSWITCH_SCRIPT:-$ROOT/bin/ccswitch}"
 PASSED=0
 FAILED=0
 
@@ -65,6 +66,27 @@ write_stubs() {
 #!/usr/bin/env bash
 url="${*: -1}"
 echo "$url" >>"$STUB_LOG"
+# Release downloads (curl -fsSL <url> -o <file>) are served from $FAKE_RELEASES/<tag|latest>/<asset>
+args=("$@")
+for ((i = 0; i < ${#args[@]}; i++)); do
+    if [[ "${args[i]}" == */releases/* ]]; then
+        release_url="${args[i]}"
+    elif [[ "${args[i]}" == "-o" ]]; then
+        output="${args[i + 1]}"
+    fi
+done
+if [[ -n "${release_url:-}" ]]; then
+    echo "$release_url" >>"$STUB_LOG"
+    if [[ "$release_url" == */releases/latest/download/* ]]; then
+        asset_path="latest/${release_url##*/}"
+    else
+        tag="${release_url#*/releases/download/}"
+        asset_path="${tag%%/*}/${release_url##*/}"
+    fi
+    [[ -f "$FAKE_RELEASES/$asset_path" ]] || exit 22
+    cp "$FAKE_RELEASES/$asset_path" "$output"
+    exit 0
+fi
 if [[ "$url" == *oauth/token* ]]; then
     cat >/dev/null
     case "${STUB_REFRESH:-ok}" in
@@ -263,6 +285,77 @@ test_help() {
     out=$(ccswitch --help)
     expect_contains "$out" "--dashboard" "help lists dashboard"
     expect_contains "$out" "--test" "help lists test"
+}
+
+# Publish a fake release <tag> built from the current modules; "latest" points at the newest one
+publish_release() {
+    local tag="$1" dir="$FAKE_RELEASES/$1"
+    mkdir -p "$dir"
+    bash "$ROOT/scripts/build.sh" "${tag#v}" "$dir" >/dev/null
+    cp "$ROOT/install.sh" "$dir/install.sh"
+    rm -rf "$FAKE_RELEASES/latest"
+    cp -R "$dir" "$FAKE_RELEASES/latest"
+}
+
+test_version() {
+    local out
+    out=$(ccswitch --version)
+    if [[ "$out" =~ ^ccswitch\ (dev|[0-9]+\.[0-9]+\.[0-9]+.*)$ ]]; then pass; else fail "version output: $out"; fi
+}
+
+test_install_latest_and_pinned() {
+    local out bin_dir="$SANDBOX/install"
+    export FAKE_RELEASES="$SANDBOX/releases"
+    publish_release v1.0.0
+    publish_release v1.1.0
+    out=$(bash "$ROOT/install.sh" --dir "$bin_dir")
+    expect_contains "$out" "Installed ccswitch 1.1.0" "installs latest by default"
+    expect_equals "$("$bin_dir/ccswitch" --version)" "ccswitch 1.1.0" "installed file runs"
+    out=$(CCSWITCH_INSTALL_DIR="$bin_dir" bash "$ROOT/install.sh" --version 1.0.0)
+    expect_contains "$out" "Installed ccswitch 1.0.0" "installs a pinned version"
+    expect_equals "$(stat -c %a "$bin_dir/ccswitch" 2>/dev/null || stat -f %Lp "$bin_dir/ccswitch")" "755" "installed file is executable"
+}
+
+test_install_rejects_bad_checksum() {
+    local out status=0 bin_dir="$SANDBOX/install"
+    export FAKE_RELEASES="$SANDBOX/releases"
+    publish_release v1.0.0
+    echo "tampered" >>"$FAKE_RELEASES/latest/ccswitch"
+    out=$(bash "$ROOT/install.sh" --dir "$bin_dir" 2>&1) || status=$?
+    expect_equals "$status" "1" "bad checksum exit status"
+    expect_contains "$out" "Checksum mismatch" "bad checksum message"
+    if [[ -e "$bin_dir/ccswitch" ]]; then fail "tampered file was installed"; else pass; fi
+}
+
+test_install_unknown_version() {
+    local out status=0
+    export FAKE_RELEASES="$SANDBOX/releases"
+    publish_release v1.0.0
+    out=$(bash "$ROOT/install.sh" --dir "$SANDBOX/install" --version v9.9.9 2>&1) || status=$?
+    expect_equals "$status" "1" "unknown version exit status"
+    expect_contains "$out" "Could not download ccswitch v9.9.9" "unknown version message"
+}
+
+test_self_update() {
+    local out bin_dir="$SANDBOX/install"
+    export FAKE_RELEASES="$SANDBOX/releases"
+    publish_release v1.0.0
+    bash "$ROOT/install.sh" --dir "$bin_dir" --name ccswitch.sh >/dev/null
+    ln -s "$bin_dir/ccswitch.sh" "$SANDBOX/ccswitch-link"
+    publish_release v1.1.0
+    out=$("$SANDBOX/ccswitch-link" --self-update)
+    expect_contains "$out" "Installed ccswitch 1.1.0" "self-update installs latest"
+    expect_equals "$("$bin_dir/ccswitch.sh" --version)" "ccswitch 1.1.0" "self-update replaced the real file"
+    if [[ -L "$SANDBOX/ccswitch-link" ]]; then pass; else fail "self-update replaced the symlink"; fi
+    out=$("$bin_dir/ccswitch.sh" --self-update 1.0.0)
+    expect_contains "$out" "Installed ccswitch 1.0.0" "self-update to a pinned version"
+}
+
+test_self_update_refuses_source_checkout() {
+    local out status=0
+    out=$(bash "$ROOT/bin/ccswitch" --self-update) || status=$?
+    expect_equals "$status" "1" "source checkout self-update exit status"
+    expect_contains "$out" "source checkout" "source checkout self-update message"
 }
 
 for test in $(declare -F | awk '{print $3}' | grep '^test_'); do

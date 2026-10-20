@@ -1,0 +1,26 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: scripts/build.sh "${GITHUB_REF_NAME#v}"
+      - name: Shellcheck
+        run: shellcheck -S warning dist/ccswitch bin/ccswitch scripts/build.sh install.sh tests/run.sh
+      - name: Test the built file
+        run: CCSWITCH_SCRIPT=dist/ccswitch bash tests/run.sh
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/ccswitch dist/ccswitch.sha256 install.sh \
+            --title "$GITHUB_REF_NAME" --generate-notes --verify-tag

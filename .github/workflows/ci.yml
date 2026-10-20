@@ -1,0 +1,20 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: scripts/build.sh 0.0.0-ci
+      - name: Shellcheck
+        run: shellcheck -S warning dist/ccswitch bin/ccswitch scripts/build.sh install.sh tests/run.sh
+      - name: Test the source checkout
+        run: bash tests/run.sh
+      - name: Test the built file
+        run: CCSWITCH_SCRIPT=dist/ccswitch bash tests/run.sh

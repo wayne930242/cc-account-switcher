@@ -18,12 +18,30 @@
 
 ## 安裝
 
-直接下載腳本：
+安裝最新版（裝到 `~/.local/bin/ccswitch`）：
 
 ```bash
-curl -O https://raw.githubusercontent.com/wayne930242/cc-account-switcher/main/ccswitch.sh
-chmod +x ccswitch.sh
+curl -fsSL https://github.com/wayne930242/cc-account-switcher/releases/latest/download/install.sh | bash
 ```
+
+安裝器會下載該版本的 `ccswitch`，先驗證 SHA256 checksum 再安裝。也可以指定版本和安裝位置：
+
+```bash
+# 指定版本，裝到其他目錄
+curl -fsSL https://github.com/wayne930242/cc-account-switcher/releases/latest/download/install.sh | bash -s -- --version v1.0.0 --dir ~/bin
+```
+
+`--version`、`--dir`、`--name` 也可以改用環境變數 `CCSWITCH_INSTALL_VERSION`、`CCSWITCH_INSTALL_DIR`、`CCSWITCH_INSTALL_NAME` 設定。
+
+已安裝的 ccswitch 可以直接更新：
+
+```bash
+ccswitch --self-update          # 更新到最新版
+ccswitch --self-update v1.0.0   # 更新到指定版本
+ccswitch --version
+```
+
+所有版本都列在 [Releases 頁面](https://github.com/wayne930242/cc-account-switcher/releases)。
 
 ## 使用方式
 
@@ -31,30 +49,30 @@ chmod +x ccswitch.sh
 
 ```bash
 # 把目前登入的帳號加入管理
-./ccswitch.sh --add-account
+ccswitch --add-account
 
 # 列出所有帳號
-./ccswitch.sh --list
+ccswitch --list
 
 # 切到下一個帳號
-./ccswitch.sh --switch
+ccswitch --switch
 
 # 用編號或 email 切到指定帳號
-./ccswitch.sh --switch-to 2
-./ccswitch.sh --switch-to user2@example.com
+ccswitch --switch-to 2
+ccswitch --switch-to user2@example.com
 
 # 移除帳號
-./ccswitch.sh --remove-account user2@example.com
+ccswitch --remove-account user2@example.com
 
 # 互動式用量看板
-./ccswitch.sh --dashboard
+ccswitch --dashboard
 
 # 實際測試 token 能不能用（全部帳號或指定一個）
-./ccswitch.sh --test
-./ccswitch.sh --test 2
+ccswitch --test
+ccswitch --test 2
 
 # 顯示說明
-./ccswitch.sh --help
+ccswitch --help
 ```
 
 ### 用量看板
@@ -78,10 +96,10 @@ token 沒過期，不代表它真的能用。`--test [編號|email]` 會用該�
 ### 第一次設定
 
 1. 用第一個帳號**登入 Claude Code**
-2. 執行 `./ccswitch.sh --add-account`，把它加入管理
+2. 執行 `ccswitch --add-account`，把它加入管理
 3. **登出**，再用第二個帳號登入 Claude Code
-4. 再執行一次 `./ccswitch.sh --add-account`
-5. 之後就能用 `./ccswitch.sh --switch` 切換帳號
+4. 再執行一次 `ccswitch --add-account`
+5. 之後就能用 `ccswitch --switch` 切換帳號
 6. **注意**：每次切換後都要重新啟動 Claude Code，新的登入才會生效
 
 > **切換的範圍**：只有登入資料會改變，佈景主題、設定、偏好和對話紀錄都維持原樣。
@@ -129,7 +147,7 @@ sudo apt install jq curl
 
 ### 切換失敗
 
-- 用 `./ccswitch.sh --list` 確認帳號已經加入
+- 用 `ccswitch --list` 確認帳號已經加入
 - 看錯誤訊息：如果是登入已失效，用該帳號重新登入 Claude Code，再執行 `--add-account`
 - 試著切回原本的帳號
 
@@ -142,13 +160,13 @@ sudo apt install jq curl
 ### Claude Code 沒有認出新帳號
 
 - 確認切換後有重新啟動 Claude Code
-- 用 `./ccswitch.sh --list` 查看目前的帳號（標示「(active)」的那個）
+- 用 `ccswitch --list` 查看目前的帳號（標示「(active)」的那個）
 
 ## 移除
 
 停用這個工具並刪除所有資料：
 
-1. 用 `./ccswitch.sh --list` 記下目前使用的帳號
+1. 用 `ccswitch --list` 記下目前使用的帳號
 2. 刪除備份目錄：`rm -rf ~/.claude-switch-backup`
 3. 刪除腳本：`rm ccswitch.sh`
 
@@ -161,7 +179,19 @@ sudo apt install jq curl
 
 ## 開發
 
-`bash tests/run.sh` 會執行離線回歸測試。每個測試都在沙盒 `HOME` 中使用檔案型的憑證儲存，並以假的 `curl` 和 `claude` 指令代替，不會碰到真正的鑰匙圈、帳號或網路。
+原始碼拆成 `lib/` 底下的模組，依檔名順序載入。從原始碼執行時用 `bin/ccswitch`（`ccswitch --version` 會顯示 `dev`）；`scripts/build.sh <版本>` 會把模組組成單一檔案 `dist/ccswitch`，並產生 `dist/ccswitch.sha256`。
+
+```
+bin/ccswitch        開發用的進入點
+lib/*.sh            模組：設定、環境、儲存、帳號清單、OAuth、指令、token 測試、看板、更新、進入點
+scripts/build.sh    建置發布用的單檔
+install.sh          隨每個版本發布的安裝器
+tests/run.sh        離線回歸測試
+```
+
+`bash tests/run.sh` 會執行離線回歸測試。每個測試都在沙盒 `HOME` 中使用檔案型的憑證儲存，並以假的 `curl` 和 `claude` 指令代替，不會碰到真正的鑰匙圈、帳號或網路。`CCSWITCH_SCRIPT=dist/ccswitch bash tests/run.sh` 則是對建置好的單檔跑同一套測試。
+
+要發布新版時，推一個像 `v1.2.0` 的 tag。發布流程會用這個版本號建置 `dist/ccswitch`，對它跑 shellcheck 和測試，再建立 GitHub Release，附上 `ccswitch`、`ccswitch.sha256` 和 `install.sh`。
 
 ## 授權
 
