@@ -91,6 +91,26 @@ To show usage for inactive accounts, the dashboard renews an inactive account's 
 
 When stdin or stdout is not a terminal, `--dashboard` prints one snapshot and exits, so it also works in scripts. Set `NO_COLOR` to disable colors.
 
+#### In Herdr
+
+The [Herdr](https://herdr.dev) plugin in `herdr-plugin/` opens the dashboard in an overlay over the active pane; quitting it restores the layout.
+
+```bash
+herdr plugin install wayne930242/cc-account-switcher/herdr-plugin
+```
+
+Then bind its action in `~/.config/herdr/config.toml`:
+
+```toml
+[[keys.command]]
+key = "prefix+u"
+type = "plugin_action"
+command = "wayne930242.ccswitch.dashboard"
+description = "open the ccswitch dashboard"
+```
+
+The plugin runs `$CCSWITCH_BIN` if set, else `ccswitch` on `PATH`, `~/.local/bin/ccswitch`, `~/bin/ccswitch`, or `~/bin/ccswitch.sh`, else the release bundled with the plugin. It puts `/opt/homebrew/bin` and `/usr/local/bin` first on `PATH`, so a Herdr started from a macOS app still finds Bash 4.4+ and `jq`.
+
 ### Token Test
 
 `--test [num|email]` checks that a stored token actually works, not just that it has not expired: it sends one tiny prompt to Haiku with `claude -p`, using that account's access token through `CLAUDE_CODE_OAUTH_TOKEN`. Without an argument it tests every account in parallel and exits non-zero when any test fails. The test runs in an empty directory with no settings, MCP servers, or tools. It needs the `claude` CLI on `PATH` and uses a few tokens of each account's quota.

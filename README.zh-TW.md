@@ -91,6 +91,26 @@ ccswitch --help
 
 標準輸入或輸出不是終端機時，`--dashboard` 只印出一次快照就結束，所以也能用在腳本裡。設定 `NO_COLOR` 可以關閉顏色。
 
+#### 在 Herdr 裡開啟
+
+`herdr-plugin/` 是 [Herdr](https://herdr.dev) 的 plugin，會在目前的 pane 上用 overlay 開啟看板，離開後版面自動還原。
+
+```bash
+herdr plugin install wayne930242/cc-account-switcher/herdr-plugin
+```
+
+再到 `~/.config/herdr/config.toml` 綁定它的 action：
+
+```toml
+[[keys.command]]
+key = "prefix+u"
+type = "plugin_action"
+command = "wayne930242.ccswitch.dashboard"
+description = "open the ccswitch dashboard"
+```
+
+plugin 依序找 `$CCSWITCH_BIN`、`PATH` 上的 `ccswitch`、`~/.local/bin/ccswitch`、`~/bin/ccswitch`、`~/bin/ccswitch.sh`，都沒有就用 plugin 內附的版本。它會把 `/opt/homebrew/bin` 和 `/usr/local/bin` 放到 `PATH` 最前面，所以從 macOS app 啟動的 Herdr 也找得到 Bash 4.4+ 和 `jq`。
+
 ### token 測試
 
 token 沒過期，不代表它真的能用。`--test [編號|email]` 會用該帳號的 access token（透過 `CLAUDE_CODE_OAUTH_TOKEN` 傳入），以 `claude -p` 向 Haiku 送出一個很短的提示，確認真的拿得到回應。不帶參數時會平行測試所有帳號，只要有一個失敗就以非 0 結束。測試在空目錄中執行，不載入任何設定、MCP 伺服器或工具。需要 `PATH` 裡有 `claude` 指令，每次測試會用掉各帳號一點點額度。
