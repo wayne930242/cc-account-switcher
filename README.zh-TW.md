@@ -67,6 +67,9 @@ ccswitch --remove-account user2@example.com
 # 互動式用量看板
 ccswitch --dashboard
 
+# 同一份資料的 JSON，給狀態列與腳本用
+ccswitch --json
+
 # 實際測試 token 能不能用（全部帳號或指定一個）
 ccswitch --test
 ccswitch --test 2
@@ -92,6 +95,8 @@ ccswitch --help
 為了查到非使用中帳號的用量，看板會更新這些帳號已過期的 access token，並存回該帳號的備份。使用中帳號的 token 由 Claude Code 持有，看板不會去更新它；這個 token 過期時，看板只會標示出來，Claude Code 下次發出請求時會自己更新。
 
 標準輸入或輸出不是終端機時，`--dashboard` 只印出一次快照就結束，所以也能用在腳本裡。設定 `NO_COLOR` 可以關閉顏色。
+
+`--json` 把同一份快照印成 JSON 陣列，每個帳號一個物件：`num`、`email`、`active`、`token_state`、`error`、`meta`（方案、等級與到期時間），以及用量 API 原樣回傳的 `usage`（`five_hour` 與 `seven_day`，各有百分比的 `utilization` 與 `resets_at`）。它和 dashboard 一樣會更新非使用中帳號過期的 token，所以狀態列應該每隔幾分鐘跑一次，不要每幾秒就跑。
 
 #### 在 Herdr 裡開啟
 

@@ -67,6 +67,9 @@ ccswitch --remove-account user2@example.com
 # Interactive usage dashboard
 ccswitch --dashboard
 
+# The same data as JSON, for status bars and scripts
+ccswitch --json
+
 # Check that tokens really work (all accounts, or one)
 ccswitch --test
 ccswitch --test 2
@@ -92,6 +95,8 @@ When there is room, Clawd, the Claude Code crab, sits beside the title in Claude
 To show usage for inactive accounts, the dashboard renews an inactive account's expired access token and saves the result back to that account's backup. It never renews the active account's live token, because Claude Code holds it; when that token has expired, the dashboard says so and Claude Code renews it on its next request.
 
 When stdin or stdout is not a terminal, `--dashboard` prints one snapshot and exits, so it also works in scripts. Set `NO_COLOR` to disable colors.
+
+`--json` prints that snapshot as a JSON array, one object per account: `num`, `email`, `active`, `token_state`, `error`, `meta` (plan, tier, and expiry times), and `usage` as the usage API returns it (`five_hour` and `seven_day`, each with `utilization` in percent and `resets_at`). It renews inactive accounts' expired tokens the same way the dashboard does, so a status bar should run it every few minutes, not every few seconds.
 
 #### In Herdr
 

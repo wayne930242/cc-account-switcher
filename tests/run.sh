@@ -236,6 +236,24 @@ test_dashboard_snapshot() {
     expect_equals "$(backup_access_token 1 a@example.com)" "good-renewed" "dashboard saved renewed token"
 }
 
+test_json_snapshot() {
+    local out
+    set_backup 1 a@example.com "$(creds good-a "$PAST_MS" rt-a)"
+    out=$(ccswitch --json)
+    expect_equals "$(jq -r 'length' <<<"$out")" "2" "json lists both accounts"
+    expect_equals "$(jq -r 'map(select(.active)) | .[0].email' <<<"$out")" "b@example.com" "json active account"
+    expect_equals "$(jq -r '.[0].usage.five_hour.utilization | floor' <<<"$out")" "42" "json 5-hour usage"
+    expect_equals "$(jq -r '.[0].meta.plan' <<<"$out")" "max" "json plan"
+}
+
+test_json_without_accounts() {
+    local out status=0
+    rm -f "$HOME/.claude-switch-backup/sequence.json"
+    out=$(ccswitch --json 2>&1) || status=$?
+    expect_equals "$status" "1" "json without accounts exit status"
+    expect_contains "$out" "No accounts are managed yet" "json without accounts message"
+}
+
 test_dashboard_never_renews_live_token() {
     local out
     login_as b@example.com "$(creds good-b "$PAST_MS" rt-b)"

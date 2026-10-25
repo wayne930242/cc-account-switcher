@@ -333,6 +333,15 @@ dashboard_restore_terminal() {
 
 # Interactive dashboard: token expiry, 5-hour and 7-day usage, testing, and switching.
 # Without a terminal it prints one snapshot.
+# Print the dashboard snapshot as a JSON array, one object per account, for status bars and scripts
+cmd_json() {
+    if [[ ! -f "$SEQUENCE_FILE" ]]; then
+        echo "Error: No accounts are managed yet" >&2
+        exit 1
+    fi
+    dashboard_collect
+}
+
 cmd_dashboard() {
     if [[ ! -f "$SEQUENCE_FILE" ]]; then
         echo "Error: No accounts are managed yet"

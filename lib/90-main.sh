@@ -13,6 +13,7 @@ Commands:
   --switch                         Rotate to next account in sequence
   --switch-to <num|email>          Switch to specific account number or email
   --dashboard                      Show token expiry and 5-hour/7-day usage; switch interactively
+  --json                           Print the dashboard's accounts, expiry, and usage as JSON
   --test [num|email]               Check that each account's token really works (claude -p, haiku)
   --self-update [version]          Update ccswitch to the latest (or the given) release
   --version                        Show the installed version
@@ -25,6 +26,7 @@ Examples:
   $0 --switch-to 2
   $0 --switch-to user@example.com
   $0 --dashboard
+  $0 --json | jq '.[] | select(.active)'
   $0 --test 2
   $0 --remove-account user@example.com
   $0 --self-update
@@ -52,6 +54,7 @@ main() {
         --switch) cmd_switch ;;
         --switch-to) shift; cmd_switch_to "$@" ;;
         --dashboard) cmd_dashboard ;;
+        --json) cmd_json ;;
         --test) shift; cmd_test "$@" ;;
         --self-update) shift; cmd_self_update "$@" ;;
         *)
