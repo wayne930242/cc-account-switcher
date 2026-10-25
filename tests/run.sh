@@ -255,7 +255,7 @@ test_dashboard_reports_dead_login() {
 # Render the interactive frame for <count> accounts in a <columns>x<rows> terminal with account <selected> selected.
 # Each line is prefixed with "|" so leading blank lines survive command substitution.
 render_interactive() {
-    local count="$1" columns="$2" rows="$3" selected="$4" snapshot
+    local count="$1" columns="$2" rows="$3" selected="$4" placement="${5:-false}" snapshot
     snapshot=$(jq -cn --argjson n "$count" --argjson exp "$FUTURE_MS" '[range(0; $n) | {
         index: ., num: (. + 1 | tostring), email: "account-\(. + 1)-with-a-long-address@example.com", active: (. == 0),
         token_state: "valid", token_message: "", error: null,
@@ -264,7 +264,8 @@ render_interactive() {
                 seven_day: {utilization: 85, resets_at: "2099-01-01T00:00:00+00:00"}, limits: []}}]')
     # shellcheck disable=SC2016
     bash -c 'source "$1"; term_cols="$2" term_rows="$3"; dashboard_terminal_size() { echo "$term_rows $term_cols"; }
-        dashboard_render "$4" "$5" false "" "" true' render "$SCRIPT" "$columns" "$rows" "$snapshot" "$selected" |
+        dashboard_render "$4" "$5" false "" "" true "$6"' render "$SCRIPT" "$columns" "$rows" "$snapshot" "$selected" \
+        "$placement" |
         sed 's/^/|/'
 }
 
@@ -284,6 +285,37 @@ test_dashboard_fits_terminal() {
     out=$(render_interactive 2 120 40 0)
     expect_contains "$out" "↑↓ select · ⏎ switch" "full key hints when there is room"
     if [[ "$out" == *" more"* ]]; then fail "accounts cut off although they fit"; else pass; fi
+}
+
+test_dashboard_crab() {
+    local out placement row column lane
+    # Resting, Clawd is the Claude Code start-up logo
+    # shellcheck disable=SC2016
+    out=$(bash -c 'source "$1"; CRAB_LANE=$CRAB_WIDTH; crab_lines center A out' crab "$SCRIPT")
+    expect_equals "$out" " ▐▛███▜▌ "$'\n'"▝▜█████▛▘"$'\n'"  ▘▘ ▝▝  " "resting crab"
+    # shellcheck disable=SC2016
+    out=$(bash -c 'source "$1"; CRAB_LANE=12; CRAB_X=3; crab_lines center A out' crab "$SCRIPT")
+    expect_equals "$(head -n1 <<<"$out")" "    ▐▛███▜▌ " "crab walks whole columns"
+
+    # With room, the header leaves a lane for it beside the title; without, the header is one line again
+    out=$(render_interactive 2 84 40 0 true)
+    placement=$(sed -n '1s/^|//p' <<<"$out")
+    read -r row column lane <<<"$placement"
+    expect_equals "$column $lane" "5 21" "crab lane column and width"
+    # Screen row N is output line N + 1, after the placement line; the title is on the lane's middle row
+    expect_contains "$(sed -n "$((row + 2))p" <<<"$out")" "Claude Code accounts" "title beside the crab"
+    expect_equals "$(sed -n "$((row + 1))p;$((row + 3))p" <<<"$out")" "|"$'\n'"|" "lane rows left blank"
+    out=$(render_interactive 6 84 16 0 true)
+    expect_equals "$(sed -n '1s/^|//p' <<<"$out")" "0 0 0" "no crab when accounts would not fit"
+    out=$(render_interactive 2 50 40 0 true)
+    expect_equals "$(sed -n '1s/^|//p' <<<"$out")" "0 0 0" "no crab when the title would not fit"
+
+    # The busy loop stops and leaves no process behind
+    # shellcheck disable=SC2016
+    out=$(bash -c 'source "$1"; crab_place 1 1 9; crab_busy_start; pid=$CRAB_BUSY_PID; sleep 0.5; crab_busy_stop
+        kill -0 "$pid" 2>/dev/null && echo alive || echo stopped' crab "$SCRIPT" 2>/dev/null)
+    if [[ "$out" == *stopped ]]; then pass; else fail "busy crab still running: $out"; fi
+    expect_contains "$out" $'\033[1;1H' "busy crab painted"
 }
 
 test_token_test() {

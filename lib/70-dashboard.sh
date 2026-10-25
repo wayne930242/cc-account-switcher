@@ -48,8 +48,10 @@ dashboard_terminal_size() {
 # Render the dashboard frame from a snapshot array.
 # The frame fits the terminal: it is at most DASHBOARD_MAX_WIDTH columns wide, never wraps, and in interactive mode
 # it is centered and shows only the accounts that fit, always including the selected one.
+# In interactive mode the header leaves a blank lane for the crab when every account still fits below it. With
+# placement=true the first line is "<row> <column> <lane width>" of that lane on screen, or "0 0 0" without one.
 dashboard_render() {
-    local snapshot="$1" selected="$2" color="$3" status="$4" status_tone="$5" interactive="$6"
+    local snapshot="$1" selected="$2" color="$3" status="$4" status_tone="$5" interactive="$6" placement="${7:-false}"
     local columns rows
 
     read -r rows columns < <(dashboard_terminal_size)
@@ -57,7 +59,9 @@ dashboard_render() {
     jq -r --argjson selected "$selected" --argjson color "$color" --arg status "$status" \
         --arg status_tone "$status_tone" --argjson columns "$columns" --argjson rows "$rows" \
         --argjson max_width "$DASHBOARD_MAX_WIDTH" \
-        --argjson interactive "$interactive" --arg updated "$(date +%H:%M:%S)" --argjson now "$(date +%s)" '
+        --argjson interactive "$interactive" --argjson placement "$placement" \
+        --argjson crab_width "$CRAB_WIDTH" --argjson crab_travel "$CRAB_MAX_TRAVEL" \
+        --arg updated "$(date +%H:%M:%S)" --argjson now "$(date +%s)" '
         # A line is an array of segments {t: text, c: SGR code or null}, so widths are measured without escapes
         def seg($t; $code): {t: $t, c: $code};
         def seg($t): seg($t; null);
@@ -159,9 +163,7 @@ dashboard_render() {
             | first(.[] | select(width <= $w)) // last;
 
         # Frame parts
-          ([spread([seg(" "), seg("Claude Code accounts"; "1")]; [seg("updated " + $updated; "2"), seg(" ")]; $w),
-            [seg(" " + rep("─"; $w - 2); "90")]]) as $top
-        | (if length == 0 then [[[seg("  No managed accounts. Run --add-account first.")]]]
+          (if length == 0 then [[[seg("  No managed accounts. Run --add-account first.")]]]
            else [.[] | [account_lines]] end) as $blocks
         | (if $interactive then
               [[seg(" " + rep("─"; $w - 2); "90")]]
@@ -174,6 +176,17 @@ dashboard_render() {
         # account above it. Interactive mode keeps the selected account in view and marks what is cut off.
         | [$blocks | to_entries[] | .value + (if .key < ($blocks | length) - 1 then [[]] else [] end)] as $blocks
         | ($blocks | map(length)) as $heights
+
+        # The crab gets a three-line header when every account still fits under it and the title still fits beside
+        # it; its lane is the crab plus up to $crab_travel columns to walk in
+        | ($w - 1 - $crab_width - 2 - 20 - 2 - 16 - 1) as $spare
+        | (if $interactive and $spare >= 0 and ($heights | add // 0) <= $rows - 4 - 1 - ($bottom | length)
+           then $crab_width + ([$spare, $crab_travel] | min) else 0 end) as $lane
+        | [seg("updated " + $updated; "2"), seg(" ")] as $updated_seg
+        | (if $lane > 0
+           then [[], spread([seg(" " + rep(" "; $lane) + "  "), seg("Claude Code accounts"; "1")]; $updated_seg; $w), []]
+           else [spread([seg(" "), seg("Claude Code accounts"; "1")]; $updated_seg; $w)] end
+           + [[seg(" " + rep("─"; $w - 2); "90")]]) as $top
         | ($rows - ($top | length) - 1 - ($bottom | length)) as $room
         | (if ($interactive | not) or ($heights | add // 0) <= $room then $blocks | add // []
            else ([$room - 2, 1] | max) as $fit
@@ -192,7 +205,9 @@ dashboard_render() {
         # Center the frame in interactive mode; a snapshot prints flush left
         | (if $interactive then [($columns - $w) / 2 | floor, 0] | max else 0 end) as $left_margin
         | (if $interactive then [($rows - ($lines | length)) / 2 | floor, 0] | max else 0 end) as $top_margin
-        | (range(0; $top_margin) | ""),
+        | (if $placement then (if $lane > 0 then "\($top_margin + 1) \($left_margin + 2) \($lane)" else "0 0 0" end)
+           else empty end),
+          (range(0; $top_margin) | ""),
           ($lines[] | rep(" "; $left_margin) + paint | sub(" +$"; ""))
     ' <<<"$snapshot"
 }
@@ -216,8 +231,10 @@ dashboard_reload() {
     else
         dashboard_status 2 "Refreshing usage…"
         dashboard_draw
+        crab_busy_start
     fi
     snapshot=$(dashboard_collect)
+    crab_busy_stop
     count=$(jq 'length' <<<"$snapshot")
     if ((selected >= count)); then
         selected=$((count > 0 ? count - 1 : 0))
@@ -226,11 +243,16 @@ dashboard_reload() {
 }
 
 # Draw over the previous frame in place: each line clears only its own tail and the rest of the screen is cleared
-# after the last line, which avoids the flicker of clearing the whole screen first
+# after the last line, which avoids the flicker of clearing the whole screen first. The crab goes on top.
 dashboard_draw() {
-    local frame
-    frame=$(dashboard_render "$snapshot" "$selected" "$color" "$status" "$status_tone" true)
+    local frame placement
+    frame=$(dashboard_render "$snapshot" "$selected" "$color" "$status" "$status_tone" true true)
+    placement="${frame%%$'\n'*}"
+    frame="${frame#*$'\n'}"
     printf '\033[H%s\033[K\033[J' "${frame//$'\n'/$'\033[K\n'}"
+    # shellcheck disable=SC2086  # placement is three numbers
+    crab_place $placement
+    crab_paint
 }
 
 # Print "<num>\t<email>\t<active>" for the selected account
@@ -262,6 +284,9 @@ dashboard_switch_selected() {
     fi
 
     # perform_switch exits on error, so it runs in a subshell with errexit kept on
+    dashboard_status 2 "Switching to Account-$num…"
+    dashboard_draw
+    crab_busy_start
     set +e
     output=$(
         set -e
@@ -269,6 +294,7 @@ dashboard_switch_selected() {
     )
     rc=$?
     set -e
+    crab_busy_stop
     if ((rc == 0)); then
         dashboard_status 32 "✓ Switched to Account-$num. Restart Claude Code to use it."
     else
@@ -288,14 +314,18 @@ dashboard_test_selected() {
     IFS=$'\t' read -r num email active < <(dashboard_selected_account)
     dashboard_status 2 "Testing Account-$num with claude -p (haiku)…"
     dashboard_draw
+    crab_busy_start
     if verdict=$(test_account_inference "$num" "$email" "$active"); then
+        crab_busy_stop
         dashboard_status 32 "✓ Account-$num test: $verdict"
     else
+        crab_busy_stop
         dashboard_status 31 "✗ Account-$num test: $verdict"
     fi
 }
 
 dashboard_restore_terminal() {
+    crab_busy_stop
     stty echo 2>/dev/null || true
     tput cnorm 2>/dev/null || true
     tput rmcup 2>/dev/null || true
@@ -314,6 +344,8 @@ cmd_dashboard() {
     local resized=false next_reload
     if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
         color=true
+        # shellcheck disable=SC2034  # read by crab_paint
+        CRAB_COLOR=$(crab_color_code)
     fi
 
     if [[ ! -t 0 || ! -t 1 ]]; then
@@ -323,7 +355,8 @@ cmd_dashboard() {
 
     trap dashboard_restore_terminal EXIT
     trap 'exit 130' INT TERM
-    # read is not interrupted by SIGWINCH, so the loop reads with a one-second timeout and redraws after a resize
+    # read is not interrupted by SIGWINCH, so the loop reads with a short timeout, redraws after a resize, and moves
+    # the crab on the ticks in between
     trap 'resized=true' WINCH
     tput smcup 2>/dev/null || true
     tput civis 2>/dev/null || true
@@ -336,12 +369,14 @@ cmd_dashboard() {
     dashboard_draw
     while true; do
         key=""
-        if ! IFS= read -rsn1 -t 1 key; then
+        if ! IFS= read -rsn1 -t "$CRAB_TICK_SECONDS" key; then
             if ((SECONDS >= next_reload)); then
                 dashboard_status "" ""
                 dashboard_reload
                 next_reload=$((SECONDS + DASHBOARD_REFRESH_SECONDS))
             elif [[ "$resized" != "true" ]]; then
+                crab_tick
+                crab_paint
                 continue
             fi
             resized=false

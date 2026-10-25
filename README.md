@@ -87,6 +87,8 @@ ccswitch --help
 
 Keys: `↑`/`↓` (or `j`/`k`) select, `Enter` switches to the selected account, `1`-`9` switch to that account number, `t` tests the selected account (see below), `r` reloads, `q` quits. Every switch asks for confirmation. The screen reloads every 5 minutes and fits itself to the terminal: in a small window it narrows and, when not every account fits, scrolls to keep the selected one in view.
 
+When there is room, Clawd, the Claude Code crab, sits beside the title in Claude's orange: it blinks, glances around, and walks sideways now and then, and shuffles its legs while the dashboard refreshes, tests, or switches. It steps aside on its own when the terminal is too small to show every account under it. The idea comes from [clawd-line](https://github.com/quazar-queso/clawd-line).
+
 To show usage for inactive accounts, the dashboard renews an inactive account's expired access token and saves the result back to that account's backup. It never renews the active account's live token, because Claude Code holds it; when that token has expired, the dashboard says so and Claude Code renews it on its next request.
 
 When stdin or stdout is not a terminal, `--dashboard` prints one snapshot and exits, so it also works in scripts. Set `NO_COLOR` to disable colors.
