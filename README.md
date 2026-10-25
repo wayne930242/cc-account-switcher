@@ -85,7 +85,7 @@ ccswitch --help
 - **Token state**: whether the access token is valid, was just renewed, or the login is dead
 - **5-hour and 7-day usage**: percent used, with the time until each window resets, plus any per-model weekly limits
 
-Keys: `↑`/`↓` (or `j`/`k`) select, `Enter` switches to the selected account, `1`-`9` switch to that account number, `t` tests the selected account (see below), `r` reloads, `q` quits. Every switch asks for confirmation. The screen reloads every 5 minutes.
+Keys: `↑`/`↓` (or `j`/`k`) select, `Enter` switches to the selected account, `1`-`9` switch to that account number, `t` tests the selected account (see below), `r` reloads, `q` quits. Every switch asks for confirmation. The screen reloads every 5 minutes and fits itself to the terminal: in a small window it narrows and, when not every account fits, scrolls to keep the selected one in view.
 
 To show usage for inactive accounts, the dashboard renews an inactive account's expired access token and saves the result back to that account's backup. It never renews the active account's live token, because Claude Code holds it; when that token has expired, the dashboard says so and Claude Code renews it on its next request.
 
@@ -93,7 +93,7 @@ When stdin or stdout is not a terminal, `--dashboard` prints one snapshot and ex
 
 #### In Herdr
 
-The [Herdr](https://herdr.dev) plugin in `herdr-plugin/` opens the dashboard in an overlay over the active pane; quitting it restores the layout.
+The [Herdr](https://herdr.dev) plugin in `herdr-plugin/` opens the dashboard in a centered popup that leaves your panes alone; quitting it closes the popup.
 
 ```bash
 herdr plugin install wayne930242/cc-account-switcher/herdr-plugin

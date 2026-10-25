@@ -252,6 +252,40 @@ test_dashboard_reports_dead_login() {
     expect_contains "$out" "login expired or revoked" "dead login shown"
 }
 
+# Render the interactive frame for <count> accounts in a <columns>x<rows> terminal with account <selected> selected.
+# Each line is prefixed with "|" so leading blank lines survive command substitution.
+render_interactive() {
+    local count="$1" columns="$2" rows="$3" selected="$4" snapshot
+    snapshot=$(jq -cn --argjson n "$count" --argjson exp "$FUTURE_MS" '[range(0; $n) | {
+        index: ., num: (. + 1 | tostring), email: "account-\(. + 1)-with-a-long-address@example.com", active: (. == 0),
+        token_state: "valid", token_message: "", error: null,
+        meta: {plan: "max", tier: "default_claude_max_20x", expiresAt: $exp, refreshTokenExpiresAt: ($exp + 86400000 * 20)},
+        usage: {five_hour: {utilization: 42, resets_at: "2099-01-01T00:00:00+00:00"},
+                seven_day: {utilization: 85, resets_at: "2099-01-01T00:00:00+00:00"}, limits: []}}]')
+    # shellcheck disable=SC2016
+    bash -c 'source "$1"; term_cols="$2" term_rows="$3"; dashboard_terminal_size() { echo "$term_rows $term_cols"; }
+        dashboard_render "$4" "$5" false "" "" true' render "$SCRIPT" "$columns" "$rows" "$snapshot" "$selected" |
+        sed 's/^/|/'
+}
+
+test_dashboard_fits_terminal() {
+    local out line widest=0 lines=0
+    out=$(render_interactive 6 44 16 4)
+    while IFS= read -r line; do
+        line="${line#|}"
+        ((${#line} > widest)) && widest=${#line}
+        lines=$((lines + 1))
+    done <<<"$out"
+    if ((widest <= 44)); then pass; else fail "frame is $widest columns wide in a 44-column terminal"; fi
+    if ((lines <= 16)); then pass; else fail "frame is $lines lines tall in a 16-line terminal"; fi
+    expect_contains "$out" "5  account-5-" "selected account kept in view"
+    expect_contains "$out" "↑ " "accounts above the view are counted"
+    expect_contains "$out" "…" "long email truncated"
+    out=$(render_interactive 2 120 40 0)
+    expect_contains "$out" "↑↓ select · ⏎ switch" "full key hints when there is room"
+    if [[ "$out" == *" more"* ]]; then fail "accounts cut off although they fit"; else pass; fi
+}
+
 test_token_test() {
     local out status=0
     out=$(ccswitch --test)

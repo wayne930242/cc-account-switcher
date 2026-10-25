@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Herdr plugin entry: `run.sh open` opens the overlay pane, `run.sh dashboard` runs inside it.
+# Herdr plugin entry: `run.sh open` opens the popup, `run.sh dashboard` runs inside it.
 # Herdr starts plugin commands with the PATH of whatever started its server; a Herdr launched from a macOS app
 # has only /usr/bin:/bin:/usr/sbin:/sbin, where neither ccswitch nor jq is found, and where `env bash` finds macOS's
 # bash 3.2, which ccswitch refuses. The usual install directories go first so a newer bash wins.
@@ -39,7 +39,7 @@ case "${1:-}" in
 		else
 			"$ccswitch" --dashboard || status=$?
 		fi
-		# A failure would close the overlay before its message could be read.
+		# A failure would close the popup before its message could be read.
 		if ((status != 0 && status != 130)); then
 			echo
 			read -rsn1 -p "ccswitch exited with status $status; press any key to close"

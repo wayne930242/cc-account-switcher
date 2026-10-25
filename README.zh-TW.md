@@ -85,7 +85,7 @@ ccswitch --help
 - **token 狀態**：access token 是否有效、是否剛更新，或登入已經失效
 - **5 小時與 7 天用量**：已用百分比和距離重置的時間，也會列出各模型的每週額度
 
-按鍵：`↑`／`↓`（或 `j`／`k`）選擇帳號，`Enter` 切到選取的帳號，`1`–`9` 切到該編號的帳號，`t` 測試選取的帳號（見下方），`r` 重新整理，`q` 離開。每次切換都會先詢問確認，畫面每 5 分鐘自動更新。
+按鍵：`↑`／`↓`（或 `j`／`k`）選擇帳號，`Enter` 切到選取的帳號，`1`–`9` 切到該編號的帳號，`t` 測試選取的帳號（見下方），`r` 重新整理，`q` 離開。每次切換都會先詢問確認，畫面每 5 分鐘自動更新，並隨終端機大小調整：視窗小時會縮窄，放不下所有帳號時會捲動，讓選取的帳號一直留在畫面上。
 
 為了查到非使用中帳號的用量，看板會更新這些帳號已過期的 access token，並存回該帳號的備份。使用中帳號的 token 由 Claude Code 持有，看板不會去更新它；這個 token 過期時，看板只會標示出來，Claude Code 下次發出請求時會自己更新。
 
@@ -93,7 +93,7 @@ ccswitch --help
 
 #### 在 Herdr 裡開啟
 
-`herdr-plugin/` 是 [Herdr](https://herdr.dev) 的 plugin，會在目前的 pane 上用 overlay 開啟看板，離開後版面自動還原。
+`herdr-plugin/` 是 [Herdr](https://herdr.dev) 的 plugin，會在畫面中央用浮動 popup 開啟看板，不動到原本的 pane，離開後 popup 自動關閉。
 
 ```bash
 herdr plugin install wayne930242/cc-account-switcher/herdr-plugin

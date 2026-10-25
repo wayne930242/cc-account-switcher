@@ -1,18 +1,22 @@
 id = "wayne930242.ccswitch"
 name = "ccswitch"
-version = "0.1.0"
+version = "0.2.0"
 min_herdr_version = "0.9.3"
-description = "Open the ccswitch dashboard (token expiry, 5-hour and 7-day usage, switching) in an overlay; q or Esc closes it"
+description = "Open the ccswitch dashboard (token expiry, 5-hour and 7-day usage, switching) in a popup; q or Esc closes it"
 platforms = ["macos", "linux"]
 
-# The dashboard runs in a temporary overlay over the active pane; Herdr restores the layout when it exits.
+# The dashboard runs in a centered popup that leaves the tiled layout alone and closes when the dashboard exits.
+# 84 columns fit the dashboard's widest frame (78) inside the border; a smaller terminal gets a smaller popup,
+# and the dashboard fits itself to whatever size it gets.
 [[panes]]
 id = "dashboard"
 title = "ccswitch dashboard"
-placement = "overlay"
+placement = "popup"
+width = 84
+height = "85%"
 command = ["/bin/bash", "run.sh", "dashboard"]
 
-# Bind this action to a key to open the overlay.
+# Bind this action to a key to open the popup.
 [[actions]]
 id = "dashboard"
 title = "Open the ccswitch dashboard"
