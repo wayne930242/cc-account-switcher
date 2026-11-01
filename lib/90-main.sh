@@ -12,7 +12,7 @@ Commands:
   --list                           List all managed accounts
   --switch                         Rotate to next account in sequence
   --switch-to <num|email>          Switch to specific account number or email
-  --dashboard                      Show token expiry and 5-hour/7-day usage; switch interactively
+  --dashboard                      Show token expiry and 7-day usage; switch interactively
   --json                           Print the dashboard's accounts, expiry, and usage as JSON
   --test [num|email]               Check that each account's token really works (claude -p, haiku)
   --self-update [version]          Update ccswitch to the latest (or the given) release

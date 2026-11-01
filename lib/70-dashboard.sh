@@ -146,7 +146,8 @@ dashboard_render() {
             head,
             [seg("      "), login, seg(" · "; "2"), token],
             (if .usage then
-                window("5-hour"; .usage.five_hour.utilization; .usage.five_hour.resets_at),
+                # Anthropic dropped the 5-hour window (2026-11); show it only if the API still reports one
+                (.usage.five_hour // empty | window("5-hour"; .utilization; .resets_at)),
                 window("7-day"; .usage.seven_day.utilization; .usage.seven_day.resets_at),
                 (.usage.limits // [] | .[] | select(.kind == "weekly_scoped" and .scope.model.display_name != null)
                     | window("7-day " + .scope.model.display_name; .percent; .resets_at))

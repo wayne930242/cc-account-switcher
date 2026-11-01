@@ -2,7 +2,7 @@ id = "wayne930242.ccswitch"
 name = "ccswitch"
 version = "0.2.0"
 min_herdr_version = "0.9.3"
-description = "Open the ccswitch dashboard (token expiry, 5-hour and 7-day usage, switching) in a popup; q or Esc closes it"
+description = "Open the ccswitch dashboard (token expiry, 7-day usage, switching) in a popup; q or Esc closes it"
 platforms = ["macos", "linux"]
 
 # The dashboard runs in a centered popup that leaves the tiled layout alone and closes when the dashboard exits.

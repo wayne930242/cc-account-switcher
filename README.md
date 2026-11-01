@@ -13,7 +13,7 @@ A simple tool to manage and switch between multiple Claude Code accounts on macO
 - **Cross-platform**: Works on macOS, Linux, and WSL
 - **Secure storage**: Uses system keychain (macOS) or protected files (Linux/WSL)
 - **Settings preservation**: Only switches authentication - your themes, settings, and preferences remain unchanged
-- **Usage dashboard**: See every account's login expiry and 5-hour/7-day usage, and switch from the same screen
+- **Usage dashboard**: See every account's login expiry and 7-day usage, and switch from the same screen
 - **Safe switching**: An expired target login is renewed before the switch; a dead login stops the switch and leaves the current account in place
 
 ## Installation
@@ -86,7 +86,7 @@ ccswitch --help
 
 - **Login expiry**: when the stored login (refresh token) lapses and you must log in again
 - **Token state**: whether the access token is valid, was just renewed, or the login is dead
-- **5-hour and 7-day usage**: percent used, with the time until each window resets, plus any per-model weekly limits
+- **7-day usage**: percent used, with the time until the window resets (and the 5-hour window, if the API reports one again), plus any per-model weekly limits
 
 Keys: `↑`/`↓` (or `j`/`k`) select, `Enter` switches to the selected account, `1`-`9` switch to that account number, `t` tests the selected account (see below), `r` reloads, `q` quits. Every switch asks for confirmation. The screen reloads every 5 minutes and fits itself to the terminal: in a small window it narrows and, when not every account fits, scrolls to keep the selected one in view.
 

@@ -111,7 +111,7 @@ token_state_message() {
     esac
 }
 
-# Print the 5-hour and 7-day usage JSON for an access token, or a short error and return 1
+# Print the usage JSON (7-day; 5-hour only while the API reports it) for an access token, or a short error and return 1
 fetch_usage() {
     if ! http_request -H @<(printf 'Authorization: Bearer %s\n' "$1") \
         -H "anthropic-beta: $OAUTH_BETA_HEADER" "$OAUTH_USAGE_URL"; then
