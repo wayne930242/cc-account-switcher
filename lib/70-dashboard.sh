@@ -116,6 +116,8 @@ dashboard_render() {
                  else [] end);
           def plan:
             if .meta == null then ""
+            elif (.meta.tier // "" | test("max_20x")) then "Ultra"
+            elif (.meta.tier // "" | test("max_5x")) then "Max"
             elif (.meta.tier // "" | test("max_[0-9]+x")) then "Max " + (.meta.tier | capture("max_(?<x>[0-9]+x)").x)
             elif .meta.plan then .meta.plan | ascii_upcase[0:1] + .[1:]
             else "" end;

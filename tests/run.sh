@@ -232,7 +232,7 @@ test_dashboard_snapshot() {
     expect_contains "$out" "85% used" "7-day usage"
     if [[ "$out" == *" left"* ]]; then fail "dashboard still shows left"; else pass; fi
     expect_contains "$out" "7-day Fable" "per-model weekly limit"
-    expect_contains "$out" "Max 20x" "plan"
+    expect_contains "$out" "Ultra" "plan"
     expect_equals "$(backup_access_token 1 a@example.com)" "good-renewed" "dashboard saved renewed token"
 }
 
