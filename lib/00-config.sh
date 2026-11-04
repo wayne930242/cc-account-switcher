@@ -8,6 +8,7 @@ readonly SEQUENCE_FILE="$BACKUP_DIR/sequence.json"
 readonly OAUTH_TOKEN_URL="https://platform.claude.com/v1/oauth/token"
 readonly OAUTH_CLIENT_ID="9d1c250a-e61b-44d9-88ed-5944d1962f5e"
 readonly OAUTH_USAGE_URL="https://api.anthropic.com/api/oauth/usage"
+readonly OAUTH_PROFILE_URL="https://api.anthropic.com/api/oauth/profile"
 readonly OAUTH_BETA_HEADER="oauth-2025-04-20"
 readonly HTTP_USER_AGENT="ccswitch/${CCSWITCH_VERSION:-dev}"
 

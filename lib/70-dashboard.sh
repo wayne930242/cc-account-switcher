@@ -31,7 +31,8 @@ dashboard_account_json() {
 }
 
 dashboard_collect() {
-    save_live_login
+    # The snapshot is this function's stdout; nothing from saving may land in it
+    save_live_login >/dev/null
     for_each_account dashboard_account_json | jq -cs '.'
 }
 

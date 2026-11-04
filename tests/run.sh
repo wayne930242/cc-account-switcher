@@ -105,6 +105,10 @@ for ((i = 0; i < ${#args[@]}; i++)); do
 done
 if [[ "$header" == *"Bearer bad"* ]]; then
     printf '{"error":"unauthorized"}\n401'
+elif [[ "$url" == *oauth/profile* ]]; then
+    # The token "good-<x>..." belongs to <x>@example.com
+    token="${header#*Bearer good-}"
+    printf '{"account":{"email":"%s@example.com"}}\n200' "${token:0:1}"
 else
     printf '{"five_hour":{"utilization":42.0,"resets_at":"2099-01-01T00:00:00.000000+00:00"},"seven_day":{"utilization":85.0,"resets_at":"2099-01-02T00:00:00+00:00"},"limits":[{"kind":"weekly_scoped","percent":3,"resets_at":"2099-01-02T00:00:00+00:00","scope":{"model":{"display_name":"Fable"}}}]}\n200'
 fi
@@ -205,6 +209,17 @@ test_views_save_live_login() {
     out=$(ccswitch --dashboard </dev/null)
     expect_equals "$(backup_access_token 1 a@example.com)" "good-a-dash" "dashboard saves the live login"
     expect_equals "$(refresh_calls)" "0" "saving renews nothing"
+}
+
+# Claude Code may write the credentials and ~/.claude.json at different moments; a token is
+# saved only to the account it belongs to
+test_views_skip_login_of_another_account() {
+    login_as a@example.com "$(creds good-b-new "$FUTURE_MS" rt-b-new)"
+    ccswitch --json >/dev/null
+    expect_equals "$(backup_access_token 1 a@example.com)" "good-a" "another account's token not saved"
+    login_as a@example.com "$(creds unknown-a "$FUTURE_MS" rt-a2)"
+    ccswitch --list >/dev/null
+    expect_equals "$(backup_access_token 1 a@example.com)" "good-a" "token of unknown owner not saved"
 }
 
 test_views_skip_unmanaged_live_login() {

@@ -46,9 +46,12 @@ cmd_add_account() {
 
 # Save the live login to its managed account when it changed, so a /login inside Claude Code
 # needs no --add-account. The active account's backup is not read while it is active, so
-# replacing it loses nothing. An unmanaged or empty login is left alone.
+# replacing it loses nothing. An unmanaged or empty login is left alone, and so is a token
+# whose owner is not that email: Claude Code and perform_switch write the credentials and
+# ~/.claude.json one after the other, and a run in between would see one account's email
+# beside another account's token.
 save_live_login() {
-    local email num live config
+    local email num live config owner
     [[ -f "$SEQUENCE_FILE" ]] || return 0
     email=$(get_current_account)
     [[ "$email" != "none" ]] || return 0
@@ -57,6 +60,8 @@ save_live_login() {
     live=$(read_secret live)
     jq -e '.claudeAiOauth.accessToken | strings' >/dev/null 2>&1 <<<"$live" || return 0
     [[ "$live" != "$(read_secret "$num-$email")" ]] || return 0
+    owner=$(token_owner_email "$(access_token "$live")") || return 0
+    [[ "$owner" == "$email" ]] || return 0
 
     write_secret "$num-$email" "$live" || return 0
     config=$(get_claude_config_path)

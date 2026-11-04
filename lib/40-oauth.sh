@@ -112,6 +112,14 @@ token_state_message() {
 }
 
 # Print the usage JSON (7-day; 5-hour only while the API reports it) for an access token, or a short error and return 1
+# Print the email of the account an access token belongs to, or return 1 when it cannot be told
+token_owner_email() {
+    http_request -H @<(printf 'Authorization: Bearer %s\n' "$1") \
+        -H "anthropic-beta: $OAUTH_BETA_HEADER" "$OAUTH_PROFILE_URL" || return 1
+    [[ "$HTTP_STATUS" == "200" ]] || return 1
+    jq -er '.account.email | strings' <<<"$HTTP_BODY" 2>/dev/null
+}
+
 fetch_usage() {
     if ! http_request -H @<(printf 'Authorization: Bearer %s\n' "$1") \
         -H "anthropic-beta: $OAUTH_BETA_HEADER" "$OAUTH_USAGE_URL"; then
