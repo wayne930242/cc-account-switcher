@@ -131,7 +131,8 @@ cmd_switch() {
         exit 0
     fi
 
-    active_account=$(jq -r '.activeAccountNumber' "$SEQUENCE_FILE")
+    # Rotate from the live login; the recorded active number goes stale after an outside /login
+    active_account=$(account_number_for_email "$current_email")
     mapfile -t sequence < <(jq -r '.sequence[]' "$SEQUENCE_FILE")
     for i in "${!sequence[@]}"; do
         if [[ "${sequence[i]}" == "$active_account" ]]; then

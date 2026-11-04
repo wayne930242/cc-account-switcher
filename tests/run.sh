@@ -183,6 +183,13 @@ test_switch_backs_up_live_login_under_its_number() {
     fi
 }
 
+test_rotate_starts_from_live_login() {
+    local out
+    login_as a@example.com "$(creds good-a2 "$FUTURE_MS" rt-a2)"
+    out=$(ccswitch --switch)
+    expect_contains "$out" "Switched to Account-2 (b@example.com)" "rotate from the live account after an outside login"
+}
+
 test_switch_refuses_unmanaged_live_login() {
     local out status=0
     login_as c@example.com "$(creds good-c "$FUTURE_MS" rt-c)"
