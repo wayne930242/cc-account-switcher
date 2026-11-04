@@ -190,6 +190,34 @@ test_rotate_starts_from_live_login() {
     expect_contains "$out" "Switched to Account-2 (b@example.com)" "rotate from the live account after an outside login"
 }
 
+# Opening the dashboard, --json, or --list saves a login made with /login to its account
+test_views_save_live_login() {
+    local out view
+    for view in --json --list; do
+        set_backup 1 a@example.com "$(creds good-a "$PAST_MS" rt-dead)"
+        login_as a@example.com "$(creds "good-a-$view" "$FUTURE_MS" rt-a2)"
+        out=$(ccswitch "$view")
+        expect_equals "$(backup_access_token 1 a@example.com)" "good-a-$view" "$view saves the live login"
+        expect_equals "$(jq -r .activeAccountNumber "$HOME/.claude-switch-backup/sequence.json")" "1" "$view records the active number"
+    done
+    if jq -e . >/dev/null 2>&1 <<<"$(ccswitch --json)"; then pass; else fail "--json output is not JSON"; fi
+    login_as a@example.com "$(creds good-a-dash "$FUTURE_MS" rt-a3)"
+    out=$(ccswitch --dashboard </dev/null)
+    expect_equals "$(backup_access_token 1 a@example.com)" "good-a-dash" "dashboard saves the live login"
+    expect_equals "$(refresh_calls)" "0" "saving renews nothing"
+}
+
+test_views_skip_unmanaged_live_login() {
+    login_as c@example.com "$(creds good-c "$FUTURE_MS" rt-c)"
+    ccswitch --json >/dev/null
+    if compgen -G "$HOME/.claude-switch-backup/credentials/*c@example.com*" >/dev/null; then
+        fail "unmanaged login saved"
+    else
+        pass
+    fi
+    expect_equals "$(jq -r .activeAccountNumber "$HOME/.claude-switch-backup/sequence.json")" "2" "active number untouched"
+}
+
 test_switch_refuses_unmanaged_live_login() {
     local out status=0
     login_as c@example.com "$(creds good-c "$FUTURE_MS" rt-c)"

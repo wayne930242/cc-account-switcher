@@ -31,6 +31,7 @@ dashboard_account_json() {
 }
 
 dashboard_collect() {
+    save_live_login
     for_each_account dashboard_account_json | jq -cs '.'
 }
 

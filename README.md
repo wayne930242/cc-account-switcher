@@ -94,6 +94,8 @@ When there is room, Clawd, the Claude Code crab, sits beside the title in Claude
 
 To show usage for inactive accounts, the dashboard renews an inactive account's expired access token and saves the result back to that account's backup. It never renews the active account's live token, because Claude Code holds it; when that token has expired, the dashboard says so and Claude Code renews it on its next request.
 
+The dashboard, `--json`, and `--list` also save the current Claude Code login to its account when it changed, so after a `/login` with a managed account, opening the dashboard is enough; `--add-account` does the same. A login for an account that is not managed is left alone.
+
 When stdin or stdout is not a terminal, `--dashboard` prints one snapshot and exits, so it also works in scripts. Set `NO_COLOR` to disable colors.
 
 `--json` prints that snapshot as a JSON array, one object per account: `num`, `email`, `active`, `token_state`, `error`, `meta` (plan, tier, and expiry times), and `usage` as the usage API returns it (`five_hour` and `seven_day`, each with `utilization` in percent and `resets_at`). It renews inactive accounts' expired tokens the same way the dashboard does, so a status bar should run it every few minutes, not every few seconds.
@@ -177,7 +179,7 @@ A target token with more than an hour left is kept as is: renewing rotates the r
 ### If a switch fails
 
 - Check that you have accounts added: `ccswitch --list`
-- Read the error message: when the target login has expired or was revoked, run `--add-account` first to save the account you are on, then log in to Claude Code with the revoked account and run `--add-account` again. An account that is already managed keeps its number; its saved login is replaced.
+- Read the error message: when the target login has expired or was revoked, run `--add-account` (or open the dashboard) first to save the account you are on, then log in to Claude Code with the revoked account and run `--add-account` or open the dashboard again. An account that is already managed keeps its number; its saved login is replaced.
 - Try switching back to your original account
 
 ### If you can't add an account

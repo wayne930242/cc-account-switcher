@@ -44,6 +44,29 @@ cmd_add_account() {
     echo "Added Account $account_num: $current_email"
 }
 
+# Save the live login to its managed account when it changed, so a /login inside Claude Code
+# needs no --add-account. The active account's backup is not read while it is active, so
+# replacing it loses nothing. An unmanaged or empty login is left alone.
+save_live_login() {
+    local email num live config
+    [[ -f "$SEQUENCE_FILE" ]] || return 0
+    email=$(get_current_account)
+    [[ "$email" != "none" ]] || return 0
+    num=$(account_number_for_email "$email")
+    [[ -n "$num" ]] || return 0
+    live=$(read_secret live)
+    jq -e '.claudeAiOauth.accessToken | strings' >/dev/null 2>&1 <<<"$live" || return 0
+    [[ "$live" != "$(read_secret "$num-$email")" ]] || return 0
+
+    write_secret "$num-$email" "$live" || return 0
+    config=$(get_claude_config_path)
+    write_account_config "$num" "$email" "$(cat "$config")"
+    if [[ "$(jq -r '.activeAccountNumber' "$SEQUENCE_FILE")" != "$num" ]]; then
+        write_json "$SEQUENCE_FILE" "$(jq --arg num "$num" --arg now "$(timestamp)" \
+            '.activeAccountNumber = ($num | tonumber) | .lastUpdated = $now' "$SEQUENCE_FILE")"
+    fi
+}
+
 cmd_remove_account() {
     if [[ $# -eq 0 ]]; then
         echo "Usage: $0 --remove-account <account_number|email>"
@@ -101,6 +124,7 @@ cmd_list() {
     fi
 
     local current_email num email
+    save_live_login
     current_email=$(get_current_account)
     echo "Accounts:"
     while IFS=$'\t' read -r num email; do
