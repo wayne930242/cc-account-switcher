@@ -177,7 +177,7 @@ A target token with more than an hour left is kept as is: renewing rotates the r
 ### If a switch fails
 
 - Check that you have accounts added: `ccswitch --list`
-- Read the error message: when the target login has expired or was revoked, log in to Claude Code with that account and run `--add-account`
+- Read the error message: when the target login has expired or was revoked, run `--add-account` first to save the account you are on, then log in to Claude Code with the revoked account and run `--add-account` again. An account that is already managed keeps its number; its saved login is replaced.
 - Try switching back to your original account
 
 ### If you can't add an account

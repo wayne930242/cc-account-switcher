@@ -177,7 +177,7 @@ sudo apt install jq curl
 ### 切換失敗
 
 - 用 `ccswitch --list` 確認帳號已經加入
-- 看錯誤訊息：如果是登入已失效，用該帳號重新登入 Claude Code，再執行 `--add-account`
+- 看錯誤訊息：如果是登入已失效，先執行 `--add-account` 存下目前使用中的帳號，再用失效的帳號重新登入 Claude Code，然後再執行一次 `--add-account`。已經在管理的帳號會沿用原本的編號，只換掉存下的登入。
 - 試著切回原本的帳號
 
 ### 無法新增帳號

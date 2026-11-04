@@ -149,7 +149,48 @@ test_add_and_list() {
     expect_contains "$out" "1: a@example.com" "list"
     expect_contains "$out" "2: b@example.com (active)" "list"
     out=$(ccswitch --add-account)
-    expect_contains "$out" "already managed" "add twice"
+    expect_contains "$out" "Updated Account 2: b@example.com" "add twice updates the login"
+    out=$(ccswitch --list)
+    expect_equals "$(grep -c 'b@example.com' <<<"$out")" "1" "add twice keeps one entry"
+}
+
+# A revoked login is fixed by logging in again and running --add-account; the number stays
+test_add_account_saves_new_login() {
+    local out
+    set_backup 1 a@example.com "$(creds good-a "$PAST_MS" rt-dead)"
+    login_as a@example.com "$(creds good-a2 "$FUTURE_MS" rt-a2)"
+    out=$(ccswitch --add-account)
+    expect_contains "$out" "Updated Account 1: a@example.com" "relogin message"
+    expect_equals "$(backup_access_token 1 a@example.com)" "good-a2" "new login saved to the same number"
+    expect_equals "$(jq -r .activeAccountNumber "$HOME/.claude-switch-backup/sequence.json")" "1" "active number follows the login"
+    out=$(ccswitch --switch-to 2)
+    expect_contains "$out" "Switched to Account-2 (b@example.com)" "switch after relogin"
+    expect_equals "$(backup_access_token 1 a@example.com)" "good-a2" "relogged account backed up under its number"
+}
+
+# After a /login outside ccswitch the recorded active number is stale; the live email decides the slot
+test_switch_backs_up_live_login_under_its_number() {
+    local out
+    login_as a@example.com "$(creds good-a2 "$FUTURE_MS" rt-a2)"
+    out=$(ccswitch --switch-to 2)
+    expect_contains "$out" "Switched to Account-2 (b@example.com)" "switch"
+    expect_equals "$(backup_access_token 1 a@example.com)" "good-a2" "live login saved to its own number"
+    expect_equals "$(backup_access_token 2 b@example.com)" "good-b" "target backup untouched"
+    if [[ -e "$HOME/.claude-switch-backup/credentials/.claude-credentials-2-a@example.com.json" ]]; then
+        fail "live login written to another account's number"
+    else
+        pass
+    fi
+}
+
+test_switch_refuses_unmanaged_live_login() {
+    local out status=0
+    login_as c@example.com "$(creds good-c "$FUTURE_MS" rt-c)"
+    out=$(ccswitch --switch-to 1) || status=$?
+    expect_equals "$status" "1" "unmanaged live login exit status"
+    expect_contains "$out" "c@example.com is not managed" "unmanaged live login message"
+    expect_equals "$(live_email)" "c@example.com" "unmanaged live login untouched"
+    expect_equals "$(live_access_token)" "good-c" "unmanaged live token untouched"
 }
 
 test_switch_keeps_valid_token() {

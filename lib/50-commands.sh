@@ -11,19 +11,25 @@ cmd_add_account() {
         echo "Error: No active Claude account found. Please log in first."
         exit 1
     fi
-    if account_exists "$current_email"; then
-        echo "Account $current_email is already managed."
-        exit 0
-    fi
-
     current_creds=$(read_secret live)
     if [[ -z "$current_creds" ]]; then
         echo "Error: No credentials found for current account"
         exit 1
     fi
+    config=$(get_claude_config_path)
+
+    # A managed account keeps its number: saving again stores a fresh login after a revoked one
+    account_num=$(account_number_for_email "$current_email")
+    if [[ -n "$account_num" ]]; then
+        write_secret "$account_num-$current_email" "$current_creds"
+        write_account_config "$account_num" "$current_email" "$(cat "$config")"
+        write_json "$SEQUENCE_FILE" "$(jq --arg num "$account_num" --arg now "$(timestamp)" \
+            '.activeAccountNumber = ($num | tonumber) | .lastUpdated = $now' "$SEQUENCE_FILE")"
+        echo "Updated Account $account_num: $current_email (current login saved)"
+        return 0
+    fi
 
     account_num=$(jq -r '(.accounts | keys | map(tonumber) | max // 0) + 1' "$SEQUENCE_FILE")
-    config=$(get_claude_config_path)
     write_secret "$account_num-$current_email" "$current_creds"
     write_account_config "$account_num" "$current_email" "$(cat "$config")"
 
@@ -151,9 +157,19 @@ perform_switch() {
     local target_account="$1"
     local current_account target_email current_email target_config oauth_section config merged_config
 
-    current_account=$(jq -r '.activeAccountNumber' "$SEQUENCE_FILE")
     target_email=$(account_email "$target_account")
     current_email=$(get_current_account)
+    # The live login decides which backup it goes to; the recorded active number goes stale
+    # after a /login outside ccswitch, and a backup under another number is never read again
+    current_account=""
+    if [[ "$current_email" != "none" ]]; then
+        current_account=$(account_number_for_email "$current_email")
+        if [[ -z "$current_account" ]]; then
+            echo "Error: The current login $current_email is not managed."
+            echo "Run '$0 --add-account' to keep it, then switch again. Nothing was switched."
+            exit 1
+        fi
+    fi
 
     # The live credentials already belong to the target; renewing its stale backup would
     # rotate the refresh token that the running Claude Code still holds
@@ -188,8 +204,10 @@ perform_switch() {
 
     # Step 3: Back up the current account
     config=$(get_claude_config_path)
-    write_secret "$current_account-$current_email" "$(read_secret live)"
-    write_account_config "$current_account" "$current_email" "$(cat "$config")"
+    if [[ -n "$current_account" ]]; then
+        write_secret "$current_account-$current_email" "$(read_secret live)"
+        write_account_config "$current_account" "$current_email" "$(cat "$config")"
+    fi
 
     # Step 4: Activate the target account, keeping every other Claude Code setting
     write_secret live "$ACCOUNT_CREDENTIALS"
