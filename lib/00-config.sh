@@ -20,6 +20,8 @@ readonly RENEW_MARGIN_SECONDS=300
 # A switch target this close to expiry is renewed first; one with more time left is kept,
 # because renewing rotates the refresh token and breaks running sessions that hold the old one
 readonly SWITCH_RENEW_MARGIN_SECONDS=3600
+# A Claude Code session whose transcript changed this recently counts as live when switching
+readonly SESSION_ACTIVE_MINUTES=10
 readonly DASHBOARD_REFRESH_SECONDS=300
 # The dashboard frame is at most this wide; wider terminals center it
 readonly DASHBOARD_MAX_WIDTH=78

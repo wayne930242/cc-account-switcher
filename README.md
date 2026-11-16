@@ -14,6 +14,7 @@ A simple tool to manage and switch between multiple Claude Code accounts on macO
 - **Secure storage**: Uses system keychain (macOS) or protected files (Linux/WSL)
 - **Settings preservation**: Only switches authentication - your themes, settings, and preferences remain unchanged
 - **Usage dashboard**: See every account's login expiry and 7-day usage, and switch from the same screen
+- **Cache warning**: Before a switch, ccswitch tells you how many Claude Code sessions are live, because each re-reads its whole context on the next request
 - **Safe switching**: An expired target login is renewed before the switch; a dead login stops the switch and leaves the current account in place
 
 ## Installation
@@ -77,6 +78,10 @@ ccswitch --test 2
 # Show help
 ccswitch --help
 ```
+
+### Prompt cache warning
+
+Claude Code's prompt cache is per account, so after a switch every running session re-writes its whole prompt cache on its next request. Before `--switch`, `--switch-to`, and the dashboard's switch confirmation, ccswitch counts the sessions whose transcript under `~/.claude/projects/` (pi-claude-bridge sessions write there too) changed in the last 10 minutes and says so, for example `3 Claude Code sessions active in the last 10 min will re-read their full context (prompt cache is per account)`. It only looks at file modification times, never asks for confirmation on its own, and in scripts it prints the line to stderr and switches anyway.
 
 ### Dashboard
 

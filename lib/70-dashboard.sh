@@ -267,7 +267,7 @@ dashboard_selected_account() {
 
 # Ask for confirmation, then switch to the selected account
 dashboard_switch_selected() {
-    local num email active answer output rc
+    local num email active answer output rc warning
 
     IFS=$'\t' read -r num email active < <(dashboard_selected_account)
     if [[ "$active" == "true" ]]; then
@@ -279,7 +279,8 @@ dashboard_switch_selected() {
         return 0
     fi
 
-    dashboard_status "1;33" "Switch to Account-$num ($email)? [y/N]"
+    warning=$(active_sessions_message "$(count_active_claude_sessions)")
+    dashboard_status "1;33" "Switch to Account-$num ($email)? [y/N]${warning:+ $warning}"
     dashboard_draw
     answer=""
     IFS= read -rsn1 answer || true

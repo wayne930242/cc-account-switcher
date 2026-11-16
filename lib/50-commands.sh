@@ -183,6 +183,26 @@ cmd_switch_to() {
     perform_switch "$RESOLVED_ACCOUNT"
 }
 
+# The switch warning for N live Claude Code sessions, or nothing when there are none
+active_sessions_message() {
+    local sessions="$1" noun="sessions" pronoun="their"
+    ((sessions > 0)) || return 0
+    if ((sessions == 1)); then
+        noun="session"
+        pronoun="its"
+    fi
+    echo "$sessions Claude Code $noun active in the last $SESSION_ACTIVE_MINUTES min will re-read $pronoun full context (prompt cache is per account)"
+}
+
+# Tell how many live sessions the switch affects; stderr, informational, never blocks
+warn_active_sessions() {
+    local message
+    message=$(active_sessions_message "$(count_active_claude_sessions)")
+    if [[ -n "$message" ]]; then
+        echo "Note: $message" >&2
+    fi
+}
+
 perform_switch() {
     local target_account="$1"
     local current_account target_email current_email target_config oauth_section config merged_config
@@ -231,6 +251,9 @@ perform_switch() {
             exit 1
         fi
     fi
+
+    # Prompt cache is per account: every live session re-reads its whole context on its next request
+    warn_active_sessions
 
     # Step 3: Back up the current account
     config=$(get_claude_config_path)

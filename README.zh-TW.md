@@ -14,6 +14,7 @@
 - **安全保存**：macOS 存在鑰匙圈（Keychain），Linux 和 WSL 存在權限 600 的檔案
 - **保留設定**：只切換登入資料，佈景主題、設定和偏好都不會變
 - **用量看板**：列出每個帳號的登入到期時間、7 天用量，並能在同一個畫面切換帳號
+- **快取提醒**：切換前會告訴你有幾個 Claude Code session 還在執行，因為每個 session 下次發出請求時都會重新讀入整份上下文
 - **安全切換**：目標帳號的 token 快到期時先更新再切換；登入已失效就不切換，維持目前的帳號
 
 ## 安裝
@@ -77,6 +78,10 @@ ccswitch --test 2
 # 顯示說明
 ccswitch --help
 ```
+
+### 提示快取警告
+
+Claude Code 的提示快取（prompt cache）是依帳號分開的，所以切換後每個還在執行的 session 在下一次請求時，都得重新寫入整份提示快取。執行 `--switch`、`--switch-to`，以及在看板確認切換之前，ccswitch 會數出 `~/.claude/projects/` 底下（pi-claude-bridge 的 session 也寫在這裡）最近 10 分鐘內有更新的 session 檔並提示，例如 `3 Claude Code sessions active in the last 10 min will re-read their full context (prompt cache is per account)`。它只看檔案的修改時間，不會自己多問一次確認；在腳本裡這行會印到 stderr，切換照常進行。
 
 ### 用量看板
 

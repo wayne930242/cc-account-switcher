@@ -23,6 +23,16 @@ get_current_account() {
     echo "${email:-none}"
 }
 
+# Claude Code sessions (transcripts under ~/.claude/projects, pi-claude-bridge included) written to
+# in the last SESSION_ACTIVE_MINUTES minutes. Stat only; no file is read.
+count_active_claude_sessions() {
+    local dir="$HOME/.claude/projects" count=0
+    if [[ -d "$dir" ]]; then
+        count=$(find "$dir" -type f -name '*.jsonl' -mmin "-$SESSION_ACTIVE_MINUTES" 2>/dev/null | wc -l || true)
+    fi
+    echo "$((count + 0))"
+}
+
 # Write JSON atomically after validating it
 write_json() {
     local file="$1" content="$2" temp_file

@@ -243,6 +243,36 @@ test_switch_refuses_unmanaged_live_login() {
     expect_equals "$(live_access_token)" "good-c" "unmanaged live token untouched"
 }
 
+# touch_session <path> [age in minutes]: create a Claude Code transcript with that age
+touch_session() {
+    mkdir -p "$(dirname "$1")"
+    : >"$1"
+    if (($# > 1)); then touch -t "$(date -d "-$2 min" +%Y%m%d%H%M.%S 2>/dev/null || date -v-"$2"M +%Y%m%d%H%M.%S)" "$1"; fi
+}
+
+test_switch_warns_about_active_sessions() {
+    local out err projects="$HOME/.claude/projects"
+    expect_equals "$(bash -c 'source "$1"; count_active_claude_sessions' _ "$SCRIPT")" "0" "no projects dir counts zero"
+    touch_session "$projects/-a/one.jsonl"
+    touch_session "$projects/-a/sub/two.jsonl" 3
+    touch_session "$projects/-b/stale.jsonl" 30
+    touch_session "$projects/-b/notes.txt"
+    expect_equals "$(bash -c 'source "$1"; count_active_claude_sessions' _ "$SCRIPT")" "2" "counts only fresh .jsonl files"
+    err=$(ccswitch --switch-to 1 2>&1 >/dev/null)
+    expect_contains "$err" "2 Claude Code sessions active in the last 10 min will re-read their full context (prompt cache is per account)" "switch-to warns on stderr"
+    out=$(ccswitch --switch 2>/dev/null)
+    expect_contains "$out" "Switched to Account-2" "warning does not block --switch"
+    if [[ "$out" == *"re-read"* ]]; then fail "warning leaked to stdout"; else pass; fi
+    rm -rf "$projects"
+    touch_session "$projects/-a/one.jsonl"
+    err=$(ccswitch --switch-to 1 2>&1 >/dev/null)
+    expect_contains "$err" "1 Claude Code session active in the last 10 min will re-read its full context" "singular wording"
+    rm -rf "$projects"
+    touch_session "$projects/-a/stale.jsonl" 30
+    err=$(ccswitch --switch-to 2 2>&1 >/dev/null)
+    expect_equals "$err" "" "no warning without live sessions"
+}
+
 test_switch_keeps_valid_token() {
     local out
     out=$(ccswitch --switch-to 1)
